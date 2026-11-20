@@ -1,0 +1,109 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://melodii7785.github.io/totalchart/data/schema.json",
+  "title": "TOTALCHART data file",
+  "description": "Provider-independent catalogue and commercial-performance observations.",
+  "type": "object",
+  "required": ["schema_version", "artists", "recordings", "observations"],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": { "type": "string", "const": "1.0.0" },
+    "updated_at": { "type": "string", "format": "date-time" },
+    "artists": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "name"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "string", "minLength": 1 },
+          "name": { "type": "string", "minLength": 1 },
+          "sort_name": { "type": "string" },
+          "disambiguation": { "type": "string" },
+          "external_ids": {
+            "type": "object",
+            "additionalProperties": { "type": "string" },
+            "description": "IDs keyed by namespace, e.g. musicbrainz, spotify."
+          }
+        }
+      }
+    },
+    "recordings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "title", "artist_id"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "string", "minLength": 1 },
+          "title": { "type": "string", "minLength": 1 },
+          "artist_id": { "type": "string", "minLength": 1 },
+          "release_title": { "type": "string" },
+          "release_date": { "type": "string", "format": "date" },
+          "isrc": { "type": "string" },
+          "duration_ms": { "type": "integer", "minimum": 0 },
+          "external_ids": {
+            "type": "object",
+            "additionalProperties": { "type": "string" }
+          }
+        }
+      }
+    },
+    "observations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "subject_type", "subject_id", "metric", "value", "unit", "data_status", "source", "captured_at"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "string", "minLength": 1 },
+          "subject_type": { "type": "string", "enum": ["artist", "recording", "release"] },
+          "subject_id": { "type": "string", "minLength": 1 },
+          "metric": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]*$",
+            "description": "Stable metric key, e.g. spotify_streams, physical_sales, chart_position."
+          },
+          "value": { "type": "number", "minimum": 0 },
+          "unit": {
+            "type": "string",
+            "enum": ["streams", "views", "copies", "downloads", "position", "certification", "listeners", "other"]
+          },
+          "data_status": { "type": "string", "enum": ["reported", "estimated", "derived"] },
+          "territory": {
+            "type": "string",
+            "description": "ISO 3166-1 alpha-2 code, or WORLD for worldwide."
+          },
+          "period": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "type": { "type": "string", "enum": ["lifetime", "daily", "weekly", "monthly", "custom"] },
+              "start": { "type": "string", "format": "date" },
+              "end": { "type": "string", "format": "date" },
+              "label": { "type": "string" }
+            }
+          },
+          "captured_at": { "type": "string", "format": "date-time" },
+          "source": {
+            "type": "object",
+            "required": ["name", "type"],
+            "additionalProperties": false,
+            "properties": {
+              "name": { "type": "string", "minLength": 1 },
+              "provider": { "type": "string" },
+              "type": {
+                "type": "string",
+                "enum": ["official", "third_party", "research", "manual", "community"]
+              },
+              "url": { "type": "string", "format": "uri" },
+              "retrieved_at": { "type": "string", "format": "date-time" }
+            }
+          },
+          "methodology": { "type": "string" },
+          "notes": { "type": "string" }
+        }
+      }
+    }
+  }
+}
