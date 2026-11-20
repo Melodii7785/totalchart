@@ -6,93 +6,88 @@
   <title>TOTALCHART — Music sales database</title>
   <style>
     body { background: white; color: black; font-family: "Times New Roman", Times, serif; margin: 8px; }
-    a { color: #00e; }
-    a:visited { color: #551a8b; }
+    a { color: #00e; } a:visited { color: #551a8b; }
     header { border-bottom: 1px solid #888; padding-bottom: 8px; }
     nav a { margin-right: 12px; }
-    main { max-width: 900px; }
+    main { max-width: 1000px; }
     table { border-collapse: collapse; width: 100%; margin: 12px 0; }
-    th, td { border: 1px solid #999; padding: 5px 7px; text-align: left; }
+    th, td { border: 1px solid #999; padding: 6px 7px; text-align: left; }
     th { background: #eee; }
+    th button { font: inherit; font-weight: bold; border: 0; background: transparent; cursor: pointer; text-decoration: underline; }
+    input, select, button { font: inherit; }
+    button, select { cursor: pointer; }
     .small { color: #555; font-size: .9em; }
     .unavailable { color: #777; font-style: italic; }
-    input { font: inherit; }
+    .controls { margin: 12px 0; display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+    .artist-list { display: flex; gap: 18px; flex-wrap: wrap; padding-left: 20px; }
+    .artist-list li { margin-bottom: 5px; }
+    .detail { border: 1px solid #888; padding: 10px; margin: 14px 0; }
+    .detail h3 { margin-top: 0; }
+    .selected { background: #ffffcc; }
+    .count { font-weight: bold; }
     footer { border-top: 1px solid #888; margin-top: 28px; padding-top: 8px; }
+    @media (max-width: 650px) { table { font-size: .9em; } th, td { padding: 4px; } }
   </style>
 </head>
 <body>
-<header>
+<header id="home">
   <h1>TOTALCHART</h1>
   <p>The internet's music sales database.</p>
   <nav>
-    <a href="#home">Home</a>
-    <a href="#artists">Artists</a>
-    <a href="#charts">Charts</a>
-    <a href="#methodology">Methodology</a>
-    <a href="#about">About</a>
+    <a href="#home">Home</a><a href="#artists">Artists</a><a href="#charts">Database</a><a href="#methodology">Methodology</a><a href="#about">About</a>
   </nav>
 </header>
 
 <main>
-<section id="home">
+<section>
   <h2>Welcome to TOTALCHART</h2>
   <p>A music database bringing together streaming, physical sales and digital purchases. The goal: a fuller picture of a song's commercial history, not just what is popular on streaming today.</p>
-  <form id="search-form">
-    <label for="artist-search">Search for an artist or song:</label>
-    <input id="artist-search" type="search" placeholder="e.g. Britney Spears or Toxic">
-    <button type="submit">Search</button>
+  <form id="search-form" class="controls">
+    <label for="search">Search the database:</label>
+    <input id="search" type="search" size="30" placeholder="Song or artist name" autocomplete="off">
+    <button type="submit">Search</button><button type="button" id="clear-search">Clear</button>
   </form>
-  <p id="search-message" class="small" aria-live="polite">Try the Britney Spears demo.</p>
+  <p id="search-message" class="small" aria-live="polite">Search across the artist and song catalogue.</p>
 </section>
 
 <hr>
 <section id="artists">
-  <h2>Artist database</h2>
-  <ul>
-    <li><a href="#britney">Britney Spears</a> — demo profile</li>
-  </ul>
+  <h2>Artist directory</h2>
+  <p class="small">Artists currently represented in the catalogue. Selecting an artist filters the database below.</p>
+  <ul id="artist-list" class="artist-list"></ul>
 </section>
 
 <hr>
 <section id="charts">
-  <h2>Featured chart: Britney Spears</h2>
-  <p class="small">A prototype display using a user-provided Spotify screenshot snapshot for the stream column. These figures have not yet been independently checked against Spotify, and the physical/digital sales columns are intentionally left unfilled until reliable sources are found.</p>
+  <h2>Song database</h2>
+  <p><span id="result-count" class="count">0</span> songs shown.</p>
+  <div class="controls">
+    <label for="artist-filter">Artist:</label>
+    <select id="artist-filter"><option value="">All artists</option></select>
+    <label for="sort-by">Sort:</label>
+    <select id="sort-by">
+      <option value="artist">Artist (A–Z)</option>
+      <option value="title">Song title (A–Z)</option>
+      <option value="snapshot-desc">Snapshot count (high to low)</option>
+      <option value="snapshot-asc">Snapshot count (low to high)</option>
+    </select>
+  </div>
   <table>
-    <thead><tr><th>Song</th><th>Combined units</th><th>Breakdown</th><th>Data status</th></tr></thead>
-    <tbody>
-      <tr><td><a href="#britney">Toxic</a></td><td class="unavailable">Not calculated</td><td>2,116,600,610 (stream snapshot) + Unavailable (physical) + Unavailable (digital)</td><td>Partial</td></tr>
-      <tr><td>...Baby One More Time</td><td class="unavailable">Not calculated</td><td>1,524,052,461 (stream snapshot) + Unavailable + Unavailable</td><td>Partial</td></tr>
-      <tr><td>Gimme More</td><td class="unavailable">Not calculated</td><td>1,382,124,161 (stream snapshot) + Unavailable + Unavailable</td><td>Partial</td></tr>
-      <tr><td>Oops!... I Did It Again</td><td class="unavailable">Not calculated</td><td>1,316,966,479 (stream snapshot) + Unavailable + Unavailable</td><td>Partial</td></tr>
-      <tr><td>Womanizer</td><td class="unavailable">Not calculated</td><td>969,222,776 (stream snapshot) + Unavailable + Unavailable</td><td>Partial</td></tr>
-      <tr><td>Circus</td><td class="unavailable">Not calculated</td><td>734,179,387 (stream snapshot) + Unavailable + Unavailable</td><td>Partial</td></tr>
-      <tr><td>Criminal</td><td class="unavailable">Not calculated</td><td>502,320,608 (stream snapshot) + Unavailable + Unavailable</td><td>Partial</td></tr>
-      <tr><td>I'm a Slave 4 U</td><td class="unavailable">Not calculated</td><td>357,322,955 (stream snapshot) + Unavailable + Unavailable</td><td>Partial</td></tr>
-      <tr><td>I Wanna Go</td><td class="unavailable">Not calculated</td><td>301,674,505 (stream snapshot) + Unavailable + Unavailable</td><td>Partial</td></tr>
-      <tr><td>Lucky</td><td class="unavailable">Not calculated</td><td>283,927,625 (stream snapshot) + Unavailable + Unavailable</td><td>Partial</td></tr>
-    </tbody>
+    <thead><tr><th>Song</th><th>Artist</th><th>Stream snapshot*</th><th>Physical</th><th>Digital</th><th>Status</th></tr></thead>
+    <tbody id="song-table"></tbody>
   </table>
-  <p class="small">“Not calculated” is deliberate. Adding unlike units together without a defined weighting method can be misleading. No missing figure is treated as zero.</p>
-</section>
-
-<hr>
-<section id="britney">
-  <h2>Britney Spears</h2>
-  <p><strong>Profile status:</strong> Prototype / incomplete data.</p>
-  <p>This page is a test case for comparing the long-term commercial performance of songs across different formats.</p>
-  <h3>Data fields</h3>
-  <ul>
-    <li>Streaming: snapshot supplied for this prototype; platform and capture date need confirmation.</li>
-    <li>Physical single sales: <span class="unavailable">Not researched.</span></li>
-    <li>Digital song purchases: <span class="unavailable">Not researched.</span></li>
-    <li>Territory coverage: <span class="unavailable">Not established.</span></li>
-  </ul>
+  <p id="empty-state" class="unavailable" hidden>No songs match those filters. The database gremlins found nothing.</p>
+  <p class="small">* Snapshot values below were transcribed from a user-provided Spotify screenshot. The counter type, territory and capture date have not been independently verified. They are not presented as confirmed audio-stream totals. All other missing figures remain unavailable, not zero.</p>
+  <div id="song-detail" class="detail" aria-live="polite">
+    <h3>Song record</h3>
+    <p>Select a song in the table to inspect its record.</p>
+  </div>
 </section>
 
 <hr>
 <section id="methodology">
-  <h2>Methodology</h2>
-  <p>TOTALCHART separates observed counts from estimates and weighted chart units. A raw stream count, a CD single purchase and a paid download are different kinds of activity; a simple sum is not automatically a fair popularity score.</p>
+  <h2>Methodology & data rules</h2>
+  <p>TOTALCHART keeps observed counts, estimates and weighted chart units separate. A raw stream count, a CD single purchase and a paid download are different kinds of activity; a simple sum is not automatically a fair popularity score.</p>
   <ol>
     <li>Keep streaming, physical sales and digital purchases visible as separate components.</li>
     <li>Show a combined total only when the underlying figures cover compatible products, territories and time periods and the calculation is explicitly defined.</li>
@@ -100,64 +95,146 @@
     <li>Record the source, territory, date range, and whether each figure is reported or estimated.</li>
     <li>Do not count an album purchase as a separate purchase of every individual track unless the source's methodology explicitly allocates it that way.</li>
   </ol>
-  <p>Industry methodologies also use weighted equivalents rather than simply adding raw streams and sales. See <a href="https://support.luminatedata.com/portal/en/kb/articles/methodology">Luminate's methodology</a> and <a href="https://gmr.ifpi.org/downloads/GMR2026_Methodology.pdf">IFPI's 2026 methodology</a>.</p>
+  <p>Reference material: <a href="https://support.luminatedata.com/portal/en/kb/articles/methodology">Luminate methodology</a> and <a href="https://gmr.ifpi.org/downloads/GMR2026_Methodology.pdf">IFPI 2026 methodology</a>.</p>
 </section>
 
 <hr>
 <section id="about">
   <h2>About TOTALCHART</h2>
-  <p>TOTALCHART is an independent prototype exploring how music popularity can be represented across eras and formats.</p>
-  <p>Data coverage will vary by artist, release, country and period. A blank field means we do not currently have a usable source for that statistic.</p>
+  <p>TOTALCHART is an independent project exploring how music popularity can be represented across eras and formats. The catalogue is a work in progress; an empty statistic is not an invitation to make one up.</p>
+  <p>Current version: searchable catalogue, artist filtering, sorting and individual song records. Data collection and source verification are ongoing.</p>
 </section>
 </main>
-
-<footer>
-  <p class="small">TOTALCHART — Under construction. Best viewed with a functioning internet connection and an unreasonable amount of enthusiasm.</p>
-</footer>
+<footer><p class="small">TOTALCHART — made of HTML, stubbornness, and at least three dollars. Over there.</p></footer>
 
 <script>
-  const form = document.getElementById('search-form');
-  const field = document.getElementById('artist-search');
-  const message = document.getElementById('search-message');
-  const songRows = Array.from(document.querySelectorAll('#charts tbody tr'));
+  // Values are deliberately kept separate by format. null means no usable figure is available.
+  const songs = [
+    {id:"toxic", title:"Toxic", artist:"Britney Spears", snapshot:2116600610, physical:null, digital:null, status:"Partial", note:"Transcribed from the user's Spotify screenshot; counter type, territory and capture date unverified."},
+    {id:"baby-one-more-time", title:"...Baby One More Time", artist:"Britney Spears", snapshot:1524052461, physical:null, digital:null, status:"Partial", note:"Transcribed from the user's Spotify screenshot; counter type, territory and capture date unverified."},
+    {id:"gimme-more", title:"Gimme More", artist:"Britney Spears", snapshot:1382124161, physical:null, digital:null, status:"Partial", note:"Transcribed from the user's Spotify screenshot; counter type, territory and capture date unverified."},
+    {id:"oops", title:"Oops!... I Did It Again", artist:"Britney Spears", snapshot:1316966479, physical:null, digital:null, status:"Partial", note:"Transcribed from the user's Spotify screenshot; counter type, territory and capture date unverified."},
+    {id:"womanizer", title:"Womanizer", artist:"Britney Spears", snapshot:969222776, physical:null, digital:null, status:"Partial", note:"Transcribed from the user's Spotify screenshot; counter type, territory and capture date unverified."},
+    {id:"circus", title:"Circus", artist:"Britney Spears", snapshot:734179387, physical:null, digital:null, status:"Partial", note:"Transcribed from the user's Spotify screenshot; counter type, territory and capture date unverified."},
+    {id:"criminal", title:"Criminal", artist:"Britney Spears", snapshot:502320608, physical:null, digital:null, status:"Partial", note:"Transcribed from the user's Spotify screenshot; counter type, territory and capture date unverified."},
+    {id:"slave-4-u", title:"I'm a Slave 4 U", artist:"Britney Spears", snapshot:357322955, physical:null, digital:null, status:"Partial", note:"Transcribed from the user's Spotify screenshot; counter type, territory and capture date unverified."},
+    {id:"i-wanna-go", title:"I Wanna Go", artist:"Britney Spears", snapshot:301674505, physical:null, digital:null, status:"Partial", note:"Transcribed from the user's Spotify screenshot; counter type, territory and capture date unverified."},
+    {id:"lucky", title:"Lucky", artist:"Britney Spears", snapshot:283927625, physical:null, digital:null, status:"Partial", note:"Transcribed from the user's Spotify screenshot; counter type, territory and capture date unverified."},
+    {id:"umbrella", title:"Umbrella", artist:"Rihanna", snapshot:null, physical:null, digital:null, status:"Not researched", note:"Catalogue entry only. No statistics have been entered."},
+    {id:"dont-stop-the-music", title:"Don't Stop the Music", artist:"Rihanna", snapshot:null, physical:null, digital:null, status:"Not researched", note:"Catalogue entry only. No statistics have been entered."},
+    {id:"shut-up-and-drive", title:"Shut Up and Drive", artist:"Rihanna", snapshot:null, physical:null, digital:null, status:"Not researched", note:"Catalogue entry only. No statistics have been entered."},
+    {id:"disturbia", title:"Disturbia", artist:"Rihanna", snapshot:null, physical:null, digital:null, status:"Not researched", note:"Catalogue entry only. No statistics have been entered."},
+    {id:"sos", title:"SOS", artist:"Rihanna", snapshot:null, physical:null, digital:null, status:"Not researched", note:"Catalogue entry only. No statistics have been entered."},
+    {id:"naughty-girl", title:"Naughty Girl", artist:"Beyoncé", snapshot:null, physical:null, digital:null, status:"Not researched", note:"Catalogue entry only. No statistics have been entered."},
+    {id:"crazy-in-love", title:"Crazy in Love", artist:"Beyoncé", snapshot:null, physical:null, digital:null, status:"Not researched", note:"Catalogue entry only. No statistics have been entered."},
+    {id:"single-ladies", title:"Single Ladies (Put a Ring on It)", artist:"Beyoncé", snapshot:null, physical:null, digital:null, status:"Not researched", note:"Catalogue entry only. No statistics have been entered."},
+    {id:"halo", title:"Halo", artist:"Beyoncé", snapshot:null, physical:null, digital:null, status:"Not researched", note:"Catalogue entry only. No statistics have been entered."},
+    {id:"break-my-soul", title:"BREAK MY SOUL", artist:"Beyoncé", snapshot:null, physical:null, digital:null, status:"Not researched", note:"Catalogue entry only. No statistics have been entered."}
+  ];
 
-  form.addEventListener('submit', function (event) {
-    event.preventDefault();
+  const form = document.getElementById("search-form");
+  const search = document.getElementById("search");
+  const message = document.getElementById("search-message");
+  const artistFilter = document.getElementById("artist-filter");
+  const sortBy = document.getElementById("sort-by");
+  const table = document.getElementById("song-table");
+  const detail = document.getElementById("song-detail");
+  const count = document.getElementById("result-count");
+  const empty = document.getElementById("empty-state");
+  let activeSong = null;
+  let query = "";
 
-    const query = field.value.trim().toLocaleLowerCase();
-    songRows.forEach(function (row) {
-      row.style.backgroundColor = '';
-    });
+  const formatNumber = value => value === null ? "Unavailable" : value.toLocaleString("en-US");
+  const artists = [...new Set(songs.map(song => song.artist))].sort((a,b) => a.localeCompare(b));
 
-    if (!query) {
-      message.textContent = 'Type an artist or song name first.';
-      field.focus();
-      return;
-    }
-
-    if ('britney spears'.includes(query) || query === 'britney') {
-      location.hash = 'britney';
-      message.textContent = 'Found artist: Britney Spears.';
-      return;
-    }
-
-    const matches = songRows.filter(function (row) {
-      return row.cells[0].textContent.toLocaleLowerCase().includes(query);
-    });
-
-    if (matches.length) {
-      matches.forEach(function (row) {
-        row.style.backgroundColor = '#ffffcc';
-      });
-      matches[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
-      message.textContent = matches.length === 1
-        ? 'Found song: ' + matches[0].cells[0].textContent + '.'
-        : 'Found ' + matches.length + ' matching songs.';
-      return;
-    }
-
-    message.textContent = 'No match in the current database. Only Britney Spears and the songs listed below are available in this prototype.';
+  artists.forEach(artist => {
+    const option = document.createElement("option");
+    option.value = artist; option.textContent = artist;
+    artistFilter.appendChild(option);
+    const item = document.createElement("li");
+    const link = document.createElement("a");
+    link.href = "#charts"; link.textContent = artist;
+    link.addEventListener("click", () => { artistFilter.value = artist; query = ""; search.value = ""; render(); message.textContent = "Showing songs by " + artist + "."; });
+    item.appendChild(link);
+    const total = songs.filter(song => song.artist === artist).length;
+    item.append(" — " + total + " catalogue entries");
+    document.getElementById("artist-list").appendChild(item);
   });
+
+  function renderDetail(song) {
+    activeSong = song.id;
+    detail.replaceChildren();
+    const heading = document.createElement("h3"); heading.textContent = song.title + " — " + song.artist;
+    const list = document.createElement("ul");
+    [
+      ["Streaming snapshot", formatNumber(song.snapshot)],
+      ["Physical sales", formatNumber(song.physical)],
+      ["Digital purchases", formatNumber(song.digital)],
+      ["Combined units", "Not calculated"],
+      ["Data status", song.status],
+      ["Source / notes", song.note]
+    ].forEach(([label, value]) => {
+      const li = document.createElement("li");
+      const strong = document.createElement("strong"); strong.textContent = label + ": ";
+      li.append(strong, value); list.appendChild(li);
+    });
+    const explanation = document.createElement("p");
+    explanation.className = "small";
+    explanation.textContent = "Territory: not established. Reporting period: not established. No missing value is treated as zero.";
+    detail.append(heading, list, explanation);
+    renderRowsHighlight();
+  }
+
+  function renderRowsHighlight() {
+    [...table.rows].forEach(row => row.classList.toggle("selected", row.dataset.id === activeSong));
+  }
+
+  function render() {
+    let visible = songs.filter(song => {
+      const matchesArtist = !artistFilter.value || song.artist === artistFilter.value;
+      const matchesQuery = !query || (song.title + " " + song.artist).toLocaleLowerCase().includes(query);
+      return matchesArtist && matchesQuery;
+    });
+    const sort = sortBy.value;
+    visible.sort((a,b) => {
+      if (sort === "title") return a.title.localeCompare(b.title);
+      if (sort === "snapshot-desc") return (b.snapshot ?? -1) - (a.snapshot ?? -1);
+      if (sort === "snapshot-asc") return (a.snapshot ?? Number.MAX_SAFE_INTEGER) - (b.snapshot ?? Number.MAX_SAFE_INTEGER);
+      return a.artist.localeCompare(b.artist) || a.title.localeCompare(b.title);
+    });
+    table.replaceChildren();
+    visible.forEach(song => {
+      const row = document.createElement("tr"); row.dataset.id = song.id;
+      const titleCell = document.createElement("td");
+      const link = document.createElement("a"); link.href = "#song-detail"; link.textContent = song.title;
+      link.addEventListener("click", event => { event.preventDefault(); renderDetail(song); });
+      titleCell.appendChild(link);
+      [titleCell, song.artist, formatNumber(song.snapshot), formatNumber(song.physical), formatNumber(song.digital), song.status].forEach((value, index) => {
+        if (index === 0) row.appendChild(value);
+        else { const cell = document.createElement("td"); cell.textContent = value; if (value === "Unavailable") cell.className = "unavailable"; row.appendChild(cell); }
+      });
+      row.addEventListener("dblclick", () => renderDetail(song));
+      table.appendChild(row);
+    });
+    count.textContent = visible.length;
+    empty.hidden = visible.length !== 0;
+    renderRowsHighlight();
+  }
+
+  form.addEventListener("submit", event => {
+    event.preventDefault();
+    query = search.value.trim().toLocaleLowerCase();
+    render();
+    message.textContent = query ? (count.textContent + " matching song record(s).") : "Showing the full catalogue.";
+    if (query && Number(count.textContent) === 0) message.textContent = "No matching artists or songs. Try another search.";
+  });
+  document.getElementById("clear-search").addEventListener("click", () => {
+    search.value = ""; query = ""; artistFilter.value = ""; render();
+    message.textContent = "Search and filters cleared. The whole catalogue is back.";
+  });
+  artistFilter.addEventListener("change", render);
+  sortBy.addEventListener("change", render);
+  render();
 </script>
 </body>
 </html>
