@@ -119,17 +119,44 @@
   const form = document.getElementById('search-form');
   const field = document.getElementById('artist-search');
   const message = document.getElementById('search-message');
+  const songRows = Array.from(document.querySelectorAll('#charts tbody tr'));
+
   form.addEventListener('submit', function (event) {
     event.preventDefault();
-    const query = field.value.trim().toLowerCase();
+
+    const query = field.value.trim().toLocaleLowerCase();
+    songRows.forEach(function (row) {
+      row.style.backgroundColor = '';
+    });
+
     if (!query) {
-      message.textContent = 'Type an artist name first.';
-    } else if (query === 'britney' || query === 'britney spears') {
-      location.hash = 'britney';
-      message.textContent = 'Found: Britney Spears.';
-    } else {
-      message.textContent = 'No artist profile yet. This prototype currently contains Britney Spears only.';
+      message.textContent = 'Type an artist or song name first.';
+      field.focus();
+      return;
     }
+
+    if ('britney spears'.includes(query) || query === 'britney') {
+      location.hash = 'britney';
+      message.textContent = 'Found artist: Britney Spears.';
+      return;
+    }
+
+    const matches = songRows.filter(function (row) {
+      return row.cells[0].textContent.toLocaleLowerCase().includes(query);
+    });
+
+    if (matches.length) {
+      matches.forEach(function (row) {
+        row.style.backgroundColor = '#ffffcc';
+      });
+      matches[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
+      message.textContent = matches.length === 1
+        ? 'Found song: ' + matches[0].cells[0].textContent + '.'
+        : 'Found ' + matches.length + ' matching songs.';
+      return;
+    }
+
+    message.textContent = 'No match in the current database. Only Britney Spears and the songs listed below are available in this prototype.';
   });
 </script>
 </body>
