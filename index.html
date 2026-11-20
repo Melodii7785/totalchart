@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>TOTALCHART — Music sales database</title>
+  <style>
+    body { background: white; color: black; font-family: "Times New Roman", Times, serif; margin: 8px; }
+    a { color: #00e; }
+    a:visited { color: #551a8b; }
+    header { border-bottom: 1px solid #888; padding-bottom: 8px; }
+    nav a { margin-right: 12px; }
+    main { max-width: 900px; }
+    table { border-collapse: collapse; width: 100%; margin: 12px 0; }
+    th, td { border: 1px solid #999; padding: 5px 7px; text-align: left; }
+    th { background: #eee; }
+    .small { color: #555; font-size: .9em; }
+    .unavailable { color: #777; font-style: italic; }
+    input { font: inherit; }
+    footer { border-top: 1px solid #888; margin-top: 28px; padding-top: 8px; }
+  </style>
+</head>
+<body>
+<header>
+  <h1>TOTALCHART</h1>
+  <p>The internet's music sales database.</p>
+  <nav>
+    <a href="#home">Home</a>
+    <a href="#artists">Artists</a>
+    <a href="#charts">Charts</a>
+    <a href="#methodology">Methodology</a>
+    <a href="#about">About</a>
+  </nav>
+</header>
+
+<main>
+<section id="home">
+  <h2>Welcome to TOTALCHART</h2>
+  <p>A music database bringing together streaming, physical sales and digital purchases. The goal: a fuller picture of a song's commercial history, not just what is popular on streaming today.</p>
+  <form id="search-form">
+    <label for="artist-search">Search for an artist:</label>
+    <input id="artist-search" type="search" placeholder="e.g. Britney Spears">
+    <button type="submit">Search</button>
+  </form>
+  <p id="search-message" class="small" aria-live="polite">Try the Britney Spears demo.</p>
+</section>
+
+<hr>
+<section id="artists">
+  <h2>Artist database</h2>
+  <ul>
+    <li><a href="#britney">Britney Spears</a> — demo profile</li>
+  </ul>
+</section>
+
+<hr>
+<section id="charts">
+  <h2>Featured chart: Britney Spears</h2>
+  <p class="small">A prototype display using a user-provided Spotify screenshot snapshot for the stream column. These figures have not yet been independently checked against Spotify, and the physical/digital sales columns are intentionally left unfilled until reliable sources are found.</p>
+  <table>
+    <thead><tr><th>Song</th><th>Combined units</th><th>Breakdown</th><th>Data status</th></tr></thead>
+    <tbody>
+      <tr><td><a href="#britney">Toxic</a></td><td class="unavailable">Not calculated</td><td>2,116,600,610 (stream snapshot) + Unavailable (physical) + Unavailable (digital)</td><td>Partial</td></tr>
+      <tr><td>...Baby One More Time</td><td class="unavailable">Not calculated</td><td>1,524,052,461 (stream snapshot) + Unavailable + Unavailable</td><td>Partial</td></tr>
+      <tr><td>Gimme More</td><td class="unavailable">Not calculated</td><td>1,382,124,161 (stream snapshot) + Unavailable + Unavailable</td><td>Partial</td></tr>
+      <tr><td>Oops!... I Did It Again</td><td class="unavailable">Not calculated</td><td>1,316,966,479 (stream snapshot) + Unavailable + Unavailable</td><td>Partial</td></tr>
+      <tr><td>Womanizer</td><td class="unavailable">Not calculated</td><td>969,222,776 (stream snapshot) + Unavailable + Unavailable</td><td>Partial</td></tr>
+      <tr><td>Circus</td><td class="unavailable">Not calculated</td><td>734,179,387 (stream snapshot) + Unavailable + Unavailable</td><td>Partial</td></tr>
+      <tr><td>Criminal</td><td class="unavailable">Not calculated</td><td>502,320,608 (stream snapshot) + Unavailable + Unavailable</td><td>Partial</td></tr>
+      <tr><td>I'm a Slave 4 U</td><td class="unavailable">Not calculated</td><td>357,322,955 (stream snapshot) + Unavailable + Unavailable</td><td>Partial</td></tr>
+      <tr><td>I Wanna Go</td><td class="unavailable">Not calculated</td><td>301,674,505 (stream snapshot) + Unavailable + Unavailable</td><td>Partial</td></tr>
+      <tr><td>Lucky</td><td class="unavailable">Not calculated</td><td>283,927,625 (stream snapshot) + Unavailable + Unavailable</td><td>Partial</td></tr>
+    </tbody>
+  </table>
+  <p class="small">“Not calculated” is deliberate. Adding unlike units together without a defined weighting method can be misleading. No missing figure is treated as zero.</p>
+</section>
+
+<hr>
+<section id="britney">
+  <h2>Britney Spears</h2>
+  <p><strong>Profile status:</strong> Prototype / incomplete data.</p>
+  <p>This page is a test case for comparing the long-term commercial performance of songs across different formats.</p>
+  <h3>Data fields</h3>
+  <ul>
+    <li>Streaming: snapshot supplied for this prototype; platform and capture date need confirmation.</li>
+    <li>Physical single sales: <span class="unavailable">Not researched.</span></li>
+    <li>Digital song purchases: <span class="unavailable">Not researched.</span></li>
+    <li>Territory coverage: <span class="unavailable">Not established.</span></li>
+  </ul>
+</section>
+
+<hr>
+<section id="methodology">
+  <h2>Methodology</h2>
+  <p>TOTALCHART separates observed counts from estimates and weighted chart units. A raw stream count, a CD single purchase and a paid download are different kinds of activity; a simple sum is not automatically a fair popularity score.</p>
+  <ol>
+    <li>Keep streaming, physical sales and digital purchases visible as separate components.</li>
+    <li>Show a combined total only when the underlying figures cover compatible products, territories and time periods and the calculation is explicitly defined.</li>
+    <li>Mark missing information as “Unavailable” or “Not researched”, never as zero.</li>
+    <li>Record the source, territory, date range, and whether each figure is reported or estimated.</li>
+    <li>Do not count an album purchase as a separate purchase of every individual track unless the source's methodology explicitly allocates it that way.</li>
+  </ol>
+  <p>Industry methodologies also use weighted equivalents rather than simply adding raw streams and sales. See <a href="https://support.luminatedata.com/portal/en/kb/articles/methodology">Luminate's methodology</a> and <a href="https://gmr.ifpi.org/downloads/GMR2026_Methodology.pdf">IFPI's 2026 methodology</a>.</p>
+</section>
+
+<hr>
+<section id="about">
+  <h2>About TOTALCHART</h2>
+  <p>TOTALCHART is an independent prototype exploring how music popularity can be represented across eras and formats.</p>
+  <p>Data coverage will vary by artist, release, country and period. A blank field means we do not currently have a usable source for that statistic.</p>
+</section>
+</main>
+
+<footer>
+  <p class="small">TOTALCHART — Under construction. Best viewed with a functioning internet connection and an unreasonable amount of enthusiasm.</p>
+</footer>
+
+<script>
+  const form = document.getElementById('search-form');
+  const field = document.getElementById('artist-search');
+  const message = document.getElementById('search-message');
+  form.addEventListener('submit', function (event) {
+    event.preventDefault();
+    const query = field.value.trim().toLowerCase();
+    if (!query) {
+      message.textContent = 'Type an artist name first.';
+    } else if (query === 'britney' || query === 'britney spears') {
+      location.hash = 'britney';
+      message.textContent = 'Found: Britney Spears.';
+    } else {
+      message.textContent = 'No artist profile yet. This prototype currently contains Britney Spears only.';
+    }
+  });
+</script>
+</body>
+</html>
