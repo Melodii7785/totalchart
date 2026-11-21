@@ -2,21 +2,45 @@
 
 TOTALCHART separates catalogue metadata from commercial-performance observations. A Spotify ID or a track title is not a sales statistic.
 
-## 1. Spotify catalogue search
+## 1. iTunes catalogue discovery
 
-**Status:** wired into the new search interface; Worker deployment is pending.
+**Status:** live in the GitHub Pages search interface.
 
-The browser calls the TOTALCHART Worker:
+The browser calls Apple's public iTunes Search API:
 
-GET /api/spotify/search?q=<query>&type=all|track|album|artist
+GET https://itunes.apple.com/search
 
-Search results come from Spotify's catalogue search endpoint and may contain tracks, albums, and artists. The returned IDs are Spotify IDs, and each result links back to its corresponding Spotify page.
+The search UI uses the Brazil storefront and searches the requested entity type:
+- Track: `entity=song`, `attribute=songTerm`
+- Album: `entity=album`, `attribute=albumTerm`
+- Artist: `entity=musicArtist`, `attribute=artistTerm`
 
-Official reference: https://developer.spotify.com/documentation/web-api/reference/search
+The API returns Apple catalogue IDs and metadata such as names, artist names, album names, artwork, release dates, and track durations. Apple IDs are not Spotify IDs.
 
-## 2. Spotify entity lookup
+Official reference: https://performance-partners.apple.com/search-api
 
-**Status:** implemented in the Worker source; Worker deployment is pending.
+## 2. Spotify ID finder
+
+**Status:** source committed; Cloudflare Worker deployment and Spotify app secrets must be configured.
+
+The browser sends the selected iTunes metadata to the separate `totalchart-spotify-id-finder` Worker:
+
+POST /resolve
+
+The Worker uses Spotify's documented OAuth 2.0 Client Credentials flow and official Web API Search endpoint. It searches the selected entity type in the Brazil market, compares candidate names and associated metadata, then returns ranked Spotify IDs. TotalChart displays those candidates and lets the user choose the correct Spotify entry before loading its statistics.
+
+The Worker requires two Cloudflare secrets:
+- `SPOTIFY_CLIENT_ID`
+- `SPOTIFY_CLIENT_SECRET`
+
+Do not put these credentials in GitHub or browser JavaScript. Spotify's current Development Mode eligibility requirements include an active Premium subscription for the app owner. See:
+- https://developer.spotify.com/documentation/web-api/tutorials/client-credentials-flow
+- https://developer.spotify.com/documentation/web-api/reference/search
+- https://developer.spotify.com/documentation/web-api/concepts/quota-modes
+
+## 3. Spotify entity lookup
+
+**Status:** implemented in the existing TOTALCHART Worker.
 
 The browser requests one selected Spotify entity:
 
@@ -30,11 +54,11 @@ The Artist Top 10 is a Web Player display list, not an official chart. Spotify r
 
 Official changelog: https://developer.spotify.com/documentation/web-api/references/changes/february-2026
 
-## 3. Spotify Web Player Pathfinder — lifetime playcounts
+## 4. Spotify Web Player Pathfinder — lifetime playcounts
 
-**Status:** experimental. The previous single-track route was successfully tested by the project owner. The new search-and-entity routes are committed but require Worker deployment.
+**Status:** experimental.
 
-The Worker uses the undocumented Web Player Pathfinder getTrack operation and reads data.trackUnion.playcount. It uses the anonymous Web Player token flow; it does not request a user's Spotify login, cookies, or personal access token.
+The existing Worker uses the undocumented Web Player Pathfinder getTrack operation and reads data.trackUnion.playcount. It uses the existing Web Player token integration. The ID finder does not use this mechanism; it uses Spotify's documented OAuth flow and Search API.
 
 Each reported playcount includes:
 - Spotify track ID.
@@ -44,7 +68,7 @@ Each reported playcount includes:
 - Capture timestamp.
 - Reported or unavailable status.
 
-A missing count remains unavailable, never zero. A returned 0 is preserved with an interpretation warning because Spotify may use that value for tracks below 1,000 plays. The interface is undocumented and may change or stop working.
+A missing count remains unavailable, never zero. A returned 0 is preserved with an interpretation warning because Spotify may use that value for tracks below 1,000 plays. The playcount source is undocumented and may change or stop working.
 
 ## 4. Physical sales, digital purchases, and combined score
 
@@ -57,6 +81,8 @@ A cross-format score is not calculated yet. Raw lifetime streams, paid downloads
 ## Architecture
 
 - GitHub Pages serves the static HTML, CSS, and browser modules.
-- The Cloudflare Worker provides fixed Spotify search and lookup routes.
-- The Worker caches entity/search responses in memory and caches playcounts to reduce repeated upstream calls.
+- The existing Cloudflare Worker serves Spotify entity statistics.
+- A separate Cloudflare Worker, `totalchart-spotify-id-finder`, handles documented Spotify Web API ID matching with server-side credentials.
+- The browser uses Apple's iTunes Search API for catalogue discovery.
+- Both Workers keep credentials server-side; the ID Finder caches its app token and short-lived search responses in memory.
 - No database or paid analytics service is required by the current prototype.
