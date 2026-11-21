@@ -117,7 +117,7 @@
 <script type="module">
   import { searchArtists, browseRecordings } from "./js/musicbrainz.js";
   import { fetchGlobalWeeklyChart, toSpotifyChartRecords } from "./js/spotify-charts.js";
-  import { fetchSpotifyPlaycount, parseSpotifyTrackId } from "./js/spotify-playcounts.js";
+  import { fetchSpotifyPlaycount, parseSpotifyTrackId, findSpotifyTrackId } from "./js/spotify-playcounts.js";
 
   const searchForm = document.getElementById("artist-search-form");
   const searchInput = document.getElementById("artist-search");
@@ -218,7 +218,44 @@
       cell(row, recording["first-release-date"] || "—");
       cell(row, formatDuration(recording.length));
       cell(row, Array.isArray(recording.isrcs) ? recording.isrcs.join(", ") : "—");
-      cell(row, "Not researched");
+      const statisticsCell = document.createElement("td");
+      const spotifyTrackId = findSpotifyTrackId(recording);
+      if (spotifyTrackId) {
+        const lookupButton = document.createElement("button");
+        lookupButton.type = "button";
+        lookupButton.textContent = "Fetch Spotify playcount";
+        lookupButton.addEventListener("click", async () => {
+          lookupButton.disabled = true;
+          lookupButton.textContent = "Fetching…";
+          try {
+            const result = await fetchSpotifyPlaycount(spotifyTrackId);
+            statisticsCell.replaceChildren();
+            if (result.playcount === null || result.data_status !== "reported") {
+              statisticsCell.textContent = "Unavailable";
+              if (result.reason) statisticsCell.title = result.reason;
+            } else {
+              statisticsCell.append(document.createTextNode(Number(result.playcount).toLocaleString("en-US")));
+              if (result.playcount === 0) {
+                const note = document.createElement("span");
+                note.textContent = " *";
+                note.title = "Spotify may use 0 for fewer than 1,000 plays; this is not proof of an exact zero.";
+                statisticsCell.appendChild(note);
+              }
+              statisticsCell.title = "Spotify Web Player Pathfinder · captured " + (result.observed_at || "time unavailable");
+            }
+          } catch (error) {
+            statisticsCell.textContent = "Lookup failed: " + error.message;
+          } finally {
+            lookupButton.disabled = false;
+            lookupButton.textContent = "Retry Spotify playcount";
+          }
+        });
+        statisticsCell.appendChild(lookupButton);
+      } else {
+        statisticsCell.textContent = "No linked Spotify track";
+        statisticsCell.title = "MusicBrainz has no unique, explicit Spotify track URL relationship for this recording.";
+      }
+      row.appendChild(statisticsCell);
       recordingRows.appendChild(row);
     });
     recordingTable.hidden = recordings.length === 0;
