@@ -8,7 +8,7 @@ There will be numbers. There will be sources. There will be arguments about meth
 
 ## WHAT THE HELL IS THIS
 
-Search for a track, album, or artist in Spotify's catalogue.
+Search for a track, album, or artist in Apple's iTunes music catalogue, then find its matching Spotify ID.
 
 - **Track:** open its Spotify ID, linked album and artist IDs, and lifetime playcount.
 - **Album:** open its Spotify album ID, release metadata, artists, and track count.
@@ -46,9 +46,20 @@ An album purchase is not a separate purchase of every individual track unless th
 
 ## LIVE DATA PROVIDERS
 
-### Spotify catalogue search
+### iTunes catalogue discovery
 
-The search interface uses Spotify's catalogue search endpoint to find tracks, albums, and artists. Search results include Spotify IDs and links to the corresponding Spotify pages.
+The search interface uses Apple's public iTunes Search API to find tracks, albums, and artists. iTunes IDs identify Apple catalogue entries; they are not treated as Spotify IDs.
+
+### Spotify ID finder
+
+After an iTunes result is selected, a separate Cloudflare Worker uses Spotify's documented Web API Search endpoint to find possible Spotify counterparts. Candidates are ranked against the selected title, artist, album, and available release metadata. The user chooses the matching Spotify result before the existing TotalChart lookup runs.
+
+The Worker uses Spotify's OAuth 2.0 Client Credentials flow. Set the following as Worker secrets on `totalchart-spotify-id-finder` (never commit them to GitHub or put them in browser code):
+
+- `SPOTIFY_CLIENT_ID`
+- `SPOTIFY_CLIENT_SECRET`
+
+The app owner must meet Spotify's current Developer Mode eligibility requirements. Spotify's current documentation says Development Mode apps require an active Premium subscription for the app owner. See the [Spotify Development Mode guide](https://developer.spotify.com/documentation/web-api/concepts/quota-modes) and [Client Credentials documentation](https://developer.spotify.com/documentation/web-api/tutorials/client-credentials-flow).
 
 ### Spotify Web Player Pathfinder
 
@@ -70,7 +81,8 @@ Provider details and caveats live in docs/data-providers.md. The canonical data 
 - Record territory and time coverage for every observation.
 - Define a transparent, comparable cross-format ranking method.
 - Add reviewed exports for sourced observations.
-- Keep testing the Spotify lookup as its undocumented endpoints evolve.
+- Keep the iTunes discovery and documented Spotify ID finder current.
+- Keep testing the separate Spotify playcount lookup as its undocumented source evolves.
 
 ## STATUS
 
