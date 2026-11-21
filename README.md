@@ -36,9 +36,11 @@ No React. No Tailwind. No package manager. No seventeen-step ritual. Just HTML, 
 ## WHAT WORKS SO FAR
 
 - A deliberately old-web-looking homepage.
-- A Britney Spears demo profile.
-- A chart table with a first batch of stream snapshot figures.
-- Search for Britney Spears and songs listed in the demo chart.
+- A searchable local song catalogue and artist directory.
+- MusicBrainz artist search and recording discovery.
+- Export of discovered catalogue entities into the canonical JSON data format.
+- An experimental Spotify Global weekly chart connector.
+- Dated chart observations, kept separate from lifetime stream totals.
 - Missing physical and digital sales are marked unavailable.
 - A methodology section explaining why raw streams and sales units aren't automatically interchangeable.
 
@@ -59,6 +61,16 @@ Every statistic should eventually have:
 - A clear indication of whether it is reported or estimated.
 
 And please, for the love of all things pop music, do not add raw streams, CD singles and paid downloads together as if they are identical units. Any combined score needs a documented methodology. We are building a database, not a calculator with delusions of grandeur.
+
+## LIVE DATA DISCOVERY
+
+MusicBrainz powers artist and recording discovery. The browser talks to a small Cloudflare Worker proxy so the MusicBrainz requests can include TOTALCHART's application User-Agent and obey the one-request-per-second limit.
+
+The experimental Spotify Charts connector reads a public web endpoint used by Spotify Charts. It is undocumented and may break. Stream counts are imported only when the response contains them, and they are stored as chart-period values rather than lifetime totals. Spotify filters chart streams for eligibility.
+
+Provider details and caveats live in [docs/data-providers.md](docs/data-providers.md). The canonical format is in [data/schema.json](data/schema.json).
+
+The site does not write into GitHub automatically. Use the export button, review the downloaded JSON, then merge it into `data/observations.json` deliberately.
 
 ## RESEARCH STARTING POINTS
 
