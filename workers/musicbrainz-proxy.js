@@ -5,12 +5,10 @@ const ALLOWED_ORIGINS = new Set([
   "null"
 ]);
 
-const MUSICBRAINZ_BASE = "https://musicbrainz.org/ws/2/";
-const USER_AGENT = "TOTALCHART/0.2.0 (https://github.com/Melodii7785/totalchart)";
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-
 const SPOTIFY_PATHFINDER_URL = "https://api-partner.spotify.com/pathfinder/v2/query";
 const SPOTIFY_GET_TRACK_HASH = "612585ae06ba435ad26369870deaae23b5c8800a256cd8a57e08eddc25a37294";
+const SPOTIFY_GET_ALBUM_HASH = "b9bfabef66ed756e5e13f68a942deb60bd4125ec1f1be8cc42769dc0259b4b10";
+const SPOTIFY_GET_ARTIST_HASH = "ae0e2958a4ab645b35ca19ac04d0495ae12d9c5d7b7286217674801a9aab281a";
 const SPOTIFY_TOTP_SECRETS_URL = "https://raw.githubusercontent.com/xyloflake/spot-secrets-go/refs/heads/main/secrets/secretDict.json";
 const SPOTIFY_USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36";
 const SPOTIFY_FALLBACK_APP_VERSION = "1.3.6.1874.gc66299947cb4";
@@ -29,6 +27,8 @@ var spotifyAppVersionCache = null;
 var spotifyAppVersionCacheAt = 0;
 var spotifyClientTokenCache = null;
 var spotifyPlaycountCache = new Map();
+var spotifySearchCache = new Map();
+var spotifyEntityCache = new Map();
 
 function decodeSpotifySecretArray(values) {
   var digits = "";
@@ -291,23 +291,8 @@ async function getSpotifyAuthContext() {
   }
 }
 
-async function fetchSpotifyTrackPlaycount(trackId) {
+async function fetchSpotifyPathfinder(operationName, queryHash, variables) {
   var auth = await getSpotifyAuthContext();
-  var payload = {
-    variables: {
-      uri: "spotify:track:" + trackId,
-      locale: "",
-      preReleaseV2: false
-    },
-    operationName: "getTrack",
-    extensions: {
-      persistedQuery: {
-        version: 1,
-        sha256Hash: SPOTIFY_GET_TRACK_HASH
-      }
-    }
-  };
-
   var headers = {
     "Accept": "application/json",
     "Content-Type": "application/json;charset=UTF-8",
@@ -323,7 +308,13 @@ async function fetchSpotifyTrackPlaycount(trackId) {
   var response = await fetch(SPOTIFY_PATHFINDER_URL, {
     method: "POST",
     headers: headers,
-    body: JSON.stringify(payload),
+    body: JSON.stringify({
+      variables: variables,
+      operationName: operationName,
+      extensions: {
+        persistedQuery: { version: 1, sha256Hash: queryHash }
+      }
+    }),
     cf: { cacheTtl: 0 }
   });
 
@@ -340,10 +331,47 @@ async function fetchSpotifyTrackPlaycount(trackId) {
       : "";
     throw new Error(detail || ("Spotify Pathfinder returned HTTP " + response.status + "."));
   }
+  return data.data || {};
+}
 
-  var track = data && data.data && data.data.trackUnion;
+function spotifyEntityId(uri, type) {
+  if (typeof uri !== "string") return null;
+  var prefix = "spotify:" + type + ":";
+  if (uri.indexOf(prefix) === 0) {
+    var id = uri.slice(prefix.length);
+    return /^[A-Za-z0-9]{22}$/.test(id) ? id : null;
+  }
+  return null;
+}
+
+function spotifyArtistItems(track) {
+  var items = track && track.artists && Array.isArray(track.artists.items)
+    ? track.artists.items
+    : [];
+  return items.map(function(item) {
+    var profile = item.profile || {};
+    var id = spotifyEntityId(item.uri, "artist") ||
+      spotifyEntityId(profile.uri, "artist") ||
+      (typeof item.id === "string" && /^[A-Za-z0-9]{22}$/.test(item.id) ? item.id : null);
+    return {
+      id: id,
+      name: profile.name || item.name || "Unknown artist",
+      spotify_url: id ? "https://open.spotify.com/artist/" + id : null
+    };
+  });
+}
+
+async function fetchSpotifyTrackPlaycount(trackId) {
+  var data = await fetchSpotifyPathfinder("getTrack", SPOTIFY_GET_TRACK_HASH, {
+    uri: "spotify:track:" + trackId,
+    locale: "",
+    preReleaseV2: false
+  });
+
+  var track = data.trackUnion;
   if (!track || track.__typename === "NotFound") {
     return {
+      entity_type: "track",
       track_id: trackId,
       playcount: null,
       data_status: "unavailable",
@@ -352,37 +380,55 @@ async function fetchSpotifyTrackPlaycount(trackId) {
   }
 
   var uri = typeof track.uri === "string" ? track.uri : "";
-  var returnedId = uri.indexOf("spotify:track:") === 0
-    ? uri.slice("spotify:track:".length)
-    : (typeof track.id === "string" ? track.id : "");
-  if (returnedId && returnedId !== trackId) {
+  var returnedId = spotifyEntityId(uri, "track") || trackId;
+  if (returnedId !== trackId) {
     throw new Error("Spotify returned a different track than the one requested.");
   }
 
-  var rawCount = track.playcount;
+  var album = track.albumOfTrack || track.album || {};
+  var albumId = spotifyEntityId(album.uri, "album") ||
+    (typeof album.id === "string" && /^[A-Za-z0-9]{22}$/.test(album.id) ? album.id : null);
+  var artists = spotifyArtistItems(track);
+  var images = (album.coverArt && album.coverArt.sources) ||
+    (Array.isArray(album.images) ? album.images : []) ||
+    (track.coverArt && track.coverArt.sources) || [];
+  var artwork = images[0] && images[0].url || null;
+  var duration = track.duration && track.duration.totalMilliseconds ||
+    track.trackDuration && track.trackDuration.totalMilliseconds || null;
+
   var result = {
+    entity_type: "track",
     track_id: trackId,
-    track_name: track.name || null,
-    artist_names: Array.isArray(track.artists && track.artists.items)
-      ? track.artists.items.map(function(item) { return item.profile && item.profile.name || item.name; }).filter(Boolean)
-      : [],
-    album_name: track.albumOfTrack && track.albumOfTrack.name || null,
+    track_name: track.name || "Unknown track",
+    spotify_url: "https://open.spotify.com/track/" + trackId,
+    artists: artists,
+    artist_names: artists.map(function(item) { return item.name; }),
+    artist_ids: artists.map(function(item) { return item.id; }).filter(Boolean),
+    album_id: albumId,
+    album_name: album.name || null,
+    album_url: albumId ? "https://open.spotify.com/album/" + albumId : null,
+    artwork_url: artwork,
+    duration_ms: duration,
     playcount: null,
     data_status: "unavailable",
     metric: "spotify_lifetime_playcount",
     unit: "plays",
     source: "Spotify Web Player Pathfinder",
     source_type: "unofficial",
-    observed_at: new Date().toISOString()
+    observed_at: new Date().toISOString(),
+    physical_sales: null,
+    digital_downloads: null,
+    cross_format_score: null
   };
 
+  var rawCount = track.playcount;
   if (rawCount === null || rawCount === undefined || rawCount === "") {
     result.reason = "Spotify did not include a playcount in this response.";
     return result;
   }
 
   var normalized = String(rawCount).replace(/,/g, "").trim();
-  if (!/^\d+$/.test(normalized)) {
+  if (!/^\\d+$/.test(normalized)) {
     throw new Error("Spotify returned a playcount in an unexpected format.");
   }
   var count = Number(normalized);
@@ -420,6 +466,257 @@ async function spotifyPlaycountResponse(trackId) {
   }
 }
 
+
+async function spotifyWebApiRequest(path) {
+  var auth = await getSpotifyAuthContext();
+  var response = await fetch("https://api.spotify.com/v1" + path, {
+    method: "GET",
+    headers: {
+      "Accept": "application/json",
+      "Authorization": "Bearer " + auth.accessToken,
+      "User-Agent": SPOTIFY_USER_AGENT
+    },
+    cf: { cacheTtl: 0 }
+  });
+
+  var data;
+  try {
+    data = await response.json();
+  } catch (error) {
+    throw new Error("Spotify's catalogue API returned an unreadable response.");
+  }
+  if (!response.ok) {
+    var message = data && data.error && data.error.message;
+    throw new Error(message || ("Spotify catalogue request failed (HTTP " + response.status + ")."));
+  }
+  return data;
+}
+
+function spotifySearchItem(type, item) {
+  if (!item || !item.id) return null;
+  var image = null;
+  var artists = [];
+
+  if (type === "track") {
+    image = item.album && item.album.images && item.album.images[0] && item.album.images[0].url || null;
+    artists = (item.artists || []).map(function(artist) {
+      return { id: artist.id || null, name: artist.name || "Unknown artist" };
+    });
+  } else if (type === "album") {
+    image = item.images && item.images[0] && item.images[0].url || null;
+    artists = (item.artists || []).map(function(artist) {
+      return { id: artist.id || null, name: artist.name || "Unknown artist" };
+    });
+  } else if (type === "artist") {
+    image = item.images && item.images[0] && item.images[0].url || null;
+  }
+
+  return {
+    type: type,
+    id: item.id,
+    name: item.name || "Untitled",
+    artists: artists,
+    image_url: image,
+    release_date: item.release_date || (item.album && item.album.release_date) || null,
+    album_name: item.album && item.album.name || null,
+    spotify_url: "https://open.spotify.com/" + type + "/" + item.id,
+    total_tracks: item.total_tracks || null
+  };
+}
+
+async function spotifySearch(q, type) {
+  var cacheKey = q.toLowerCase() + "|" + type;
+  var cached = spotifySearchCache.get(cacheKey);
+  if (cached && cached.expiresAt > Date.now()) return cached.data;
+
+  var types = type === "all" ? "track,album,artist" : type;
+  var params = new URLSearchParams({
+    q: q,
+    type: types,
+    limit: "6",
+    market: "BR"
+  });
+  var data = await spotifyWebApiRequest("/search?" + params.toString());
+  var results = [];
+
+  ["track", "album", "artist"].forEach(function(kind) {
+    if (types !== "track,album,artist" && kind !== type) return;
+    var bucket = data[kind + "s"];
+    var items = bucket && Array.isArray(bucket.items) ? bucket.items : [];
+    items.forEach(function(item) {
+      var mapped = spotifySearchItem(kind, item);
+      if (mapped) results.push(mapped);
+    });
+  });
+
+  var result = {
+    query: q,
+    result_type: type,
+    results: results,
+    source: "Spotify catalogue search",
+    observed_at: new Date().toISOString()
+  };
+  spotifySearchCache.set(cacheKey, { data: result, expiresAt: Date.now() + 300000 });
+  if (spotifySearchCache.size > 100) {
+    spotifySearchCache.delete(spotifySearchCache.keys().next().value);
+  }
+  return result;
+}
+
+async function mapWithConcurrency(items, concurrency, mapper) {
+  var results = new Array(items.length);
+  var nextIndex = 0;
+  var workers = Array.from({ length: Math.min(concurrency, items.length) }, async function() {
+    while (true) {
+      var index = nextIndex++;
+      if (index >= items.length) return;
+      results[index] = await mapper(items[index], index);
+    }
+  });
+  await Promise.all(workers);
+  return results;
+}
+
+function mapSpotifyInternalTrack(track) {
+  var id = spotifyEntityId(track && track.uri, "track");
+  if (!id) return null;
+  var album = track.albumOfTrack || track.album || {};
+  var artists = spotifyArtistItems(track);
+  var duration = track.duration && track.duration.totalMilliseconds ||
+    track.trackDuration && track.trackDuration.totalMilliseconds || null;
+  return {
+    id: id,
+    name: track.name || "Unknown track",
+    artists: artists,
+    album_name: album.name || null,
+    album_id: spotifyEntityId(album.uri, "album") || album.id || null,
+    duration_ms: duration,
+    spotify_url: "https://open.spotify.com/track/" + id
+  };
+}
+
+async function spotifyArtistLookup(artistId) {
+  var cacheKey = "artist:" + artistId;
+  var cached = spotifyEntityCache.get(cacheKey);
+  if (cached && cached.expiresAt > Date.now()) return cached.data;
+
+  var data = await fetchSpotifyPathfinder("queryArtistOverview", SPOTIFY_GET_ARTIST_HASH, {
+    uri: "spotify:artist:" + artistId,
+    locale: "",
+    includePrerelease: true
+  });
+  var artist = data.artistUnion;
+  if (!artist || artist.__typename === "NotFound") {
+    throw new Error("Spotify could not find that artist.");
+  }
+
+  var profile = artist.profile || {};
+  var visuals = artist.visuals || {};
+  var stats = artist.stats || {};
+  var rawTopTracks = artist.discography && artist.discography.topTracks &&
+    Array.isArray(artist.discography.topTracks.items)
+    ? artist.discography.topTracks.items
+    : [];
+  var topTracks = rawTopTracks
+    .map(function(item) { return mapSpotifyInternalTrack(item.track); })
+    .filter(Boolean)
+    .slice(0, 10);
+
+  var tracksWithCounts = await mapWithConcurrency(topTracks, 3, async function(track, index) {
+    try {
+      var count = await fetchSpotifyTrackPlaycount(track.id);
+      return Object.assign({}, track, count, {
+        rank: index + 1,
+        physical_sales: null,
+        digital_downloads: null,
+        cross_format_score: null
+      });
+    } catch (error) {
+      return Object.assign({}, track, {
+        rank: index + 1,
+        playcount: null,
+        data_status: "unavailable",
+        reason: error.message,
+        metric: "spotify_lifetime_playcount",
+        unit: "plays",
+        source: "Spotify Web Player Pathfinder",
+        source_type: "unofficial",
+        observed_at: new Date().toISOString(),
+        physical_sales: null,
+        digital_downloads: null,
+        cross_format_score: null
+      });
+    }
+  });
+
+  var result = {
+    entity_type: "artist",
+    artist_id: artistId,
+    name: profile.name || "Unknown artist",
+    spotify_url: "https://open.spotify.com/artist/" + artistId,
+    verified: profile.verified === true,
+    followers: stats.followers || null,
+    monthly_listeners: stats.monthlyListeners || null,
+    image_url: visuals.avatarImage && visuals.avatarImage.sources &&
+      visuals.avatarImage.sources[0] && visuals.avatarImage.sources[0].url || null,
+    top_tracks_source: "Spotify Web Player artist overview",
+    top_tracks_note: "These are the tracks currently listed in Spotify's artist overview, not an official chart or a lifetime-sales ranking.",
+    top_tracks: tracksWithCounts,
+    cross_format_score: null
+  };
+
+  spotifyEntityCache.set(cacheKey, { data: result, expiresAt: Date.now() + 600000 });
+  return result;
+}
+
+async function spotifyAlbumLookup(albumId) {
+  var cacheKey = "album:" + albumId;
+  var cached = spotifyEntityCache.get(cacheKey);
+  if (cached && cached.expiresAt > Date.now()) return cached.data;
+
+  var album = await spotifyWebApiRequest("/albums/" + encodeURIComponent(albumId) + "?market=BR");
+  var result = {
+    entity_type: "album",
+    album_id: albumId,
+    name: album.name || "Unknown album",
+    spotify_url: "https://open.spotify.com/album/" + albumId,
+    artists: (album.artists || []).map(function(artist) {
+      return {
+        id: artist.id || null,
+        name: artist.name || "Unknown artist",
+        spotify_url: artist.id ? "https://open.spotify.com/artist/" + artist.id : null
+      };
+    }),
+    release_date: album.release_date || null,
+    release_date_precision: album.release_date_precision || null,
+    album_type: album.album_type || null,
+    total_tracks: Number.isInteger(album.total_tracks) ? album.total_tracks : null,
+    image_url: album.images && album.images[0] && album.images[0].url || null,
+    spotify_market: "BR",
+    physical_sales: null,
+    digital_album_sales: null,
+    cross_format_score: null
+  };
+  spotifyEntityCache.set(cacheKey, { data: result, expiresAt: Date.now() + 600000 });
+  return result;
+}
+
+async function spotifyEntityLookup(type, id) {
+  var cacheKey = type + ":" + id;
+  var cached = spotifyEntityCache.get(cacheKey);
+  if (cached && cached.expiresAt > Date.now()) return cached.data;
+
+  if (type === "track") {
+    var track = await fetchSpotifyTrackPlaycount(id);
+    spotifyEntityCache.set(cacheKey, { data: track, expiresAt: Date.now() + 600000 });
+    return track;
+  }
+  if (type === "album") return spotifyAlbumLookup(id);
+  if (type === "artist") return spotifyArtistLookup(id);
+  throw new Error("Choose track, album, or artist.");
+}
+
+
 function json(data, status, extraHeaders) {
   return new Response(JSON.stringify(data), {
     status: status || 200,
@@ -446,81 +743,12 @@ function addCors(response, origin) {
   });
 }
 
-async function musicBrainzResponse(targetUrl) {
-  var upstream;
-  try {
-    upstream = await fetch(targetUrl, {
-      headers: {
-        "Accept": "application/json",
-        "User-Agent": USER_AGENT
-      },
-      cf: {
-        cacheEverything: true,
-        cacheTtl: 1800
-      }
-    });
-  } catch (error) {
-    return json({ error: "MusicBrainz could not be reached. Please try again later." }, 502);
-  }
-
-  var body = await upstream.text();
-  if (!upstream.ok) {
-    var message = upstream.status === 503
-      ? "MusicBrainz is throttling requests. Please wait a moment and try again."
-      : "MusicBrainz returned an error.";
-    return json({ error: message, upstream_status: upstream.status }, upstream.status === 503 ? 503 : 502);
-  }
-
-  return new Response(body, {
-    status: 200,
-    headers: {
-      "Content-Type": "application/json; charset=utf-8",
-      "Cache-Control": "public, max-age=60",
-      "X-Content-Type-Options": "nosniff"
-    }
-  });
-}
-
-async function spotifyChartsResponse() {
-  var upstream;
-  try {
-    upstream = await fetch("https://charts-spotify-com-service.spotify.com/public/v0/charts", {
-      headers: {
-        "Accept": "application/json",
-        "Origin": "https://charts.spotify.com",
-        "Referer": "https://charts.spotify.com/",
-        "User-Agent": USER_AGENT
-      },
-      cf: {
-        cacheEverything: true,
-        cacheTtl: 1800
-      }
-    });
-  } catch (error) {
-    return json({ error: "Spotify Charts could not be reached. Please try again later." }, 502);
-  }
-
-  var body = await upstream.text();
-  if (!upstream.ok) {
-    return json({ error: "Spotify Charts returned an error.", upstream_status: upstream.status }, 502);
-  }
-
-  return new Response(body, {
-    status: 200,
-    headers: {
-      "Content-Type": "application/json; charset=utf-8",
-      "Cache-Control": "public, max-age=60",
-      "X-Content-Type-Options": "nosniff"
-    }
-  });
-}
-
 async function handleRequest(request) {
   var url = new URL(request.url);
   var origin = request.headers.get("Origin");
 
   if (origin && !ALLOWED_ORIGINS.has(origin)) {
-    return json({ error: "This origin is not allowed to use the TOTALCHART catalogue proxy." }, 403);
+    return json({ error: "This origin is not allowed to use the TOTALCHART API." }, 403);
   }
 
   if (request.method === "OPTIONS") {
@@ -536,14 +764,44 @@ async function handleRequest(request) {
 
   if (url.pathname === "/health") {
     return addCors(json({
-      service: "TOTALCHART MusicBrainz proxy",
+      service: "TOTALCHART Spotify lookup API",
       status: "ok",
-      upstream: "MusicBrainz Web Service v2"
+      providers: ["Spotify catalogue search", "Spotify Web Player Pathfinder"]
     }), origin);
   }
 
-  if (url.pathname === "/api/spotify/global-weekly") {
-    return addCors(await spotifyChartsResponse(), origin);
+  if (url.pathname === "/api/spotify/search") {
+    var query = (url.searchParams.get("q") || "").trim();
+    var type = (url.searchParams.get("type") || "all").trim().toLowerCase();
+    if (query.length < 2 || query.length > 150) {
+      return addCors(json({ error: "Search text must contain between 2 and 150 characters." }, 400), origin);
+    }
+    if (!["all", "track", "album", "artist"].includes(type)) {
+      return addCors(json({ error: "Search type must be all, track, album, or artist." }, 400), origin);
+    }
+    try {
+      var searchResult = await spotifySearch(query, type);
+      return addCors(json(searchResult, 200, { "Cache-Control": "public, max-age=60, s-maxage=300" }), origin);
+    } catch (error) {
+      return addCors(json({ error: "Spotify catalogue search failed.", detail: error.message }, 502), origin);
+    }
+  }
+
+  if (url.pathname === "/api/spotify/lookup") {
+    var entityType = (url.searchParams.get("type") || "").trim().toLowerCase();
+    var entityId = (url.searchParams.get("id") || "").trim();
+    if (!["track", "album", "artist"].includes(entityType)) {
+      return addCors(json({ error: "Entity type must be track, album, or artist." }, 400), origin);
+    }
+    if (!SPOTIFY_TRACK_ID_RE.test(entityId)) {
+      return addCors(json({ error: "A valid 22-character Spotify ID is required." }, 400), origin);
+    }
+    try {
+      var entity = await spotifyEntityLookup(entityType, entityId);
+      return addCors(json(entity, 200, { "Cache-Control": "public, max-age=60, s-maxage=600" }), origin);
+    } catch (error) {
+      return addCors(json({ error: "Spotify " + entityType + " lookup failed.", detail: error.message }, 502), origin);
+    }
   }
 
   if (url.pathname === "/api/spotify/playcount") {
@@ -554,41 +812,7 @@ async function handleRequest(request) {
     return addCors(await spotifyPlaycountResponse(spotifyTrackId), origin);
   }
 
-  var upstreamUrl;
-
-  if (url.pathname === "/api/artists/search") {
-    var query = (url.searchParams.get("q") || "").trim();
-    if (query.length < 2 || query.length > 150) {
-      return addCors(json({ error: "Search text must contain between 2 and 150 characters." }, 400), origin);
-    }
-
-    var limit = Math.min(25, Math.max(1, Number.parseInt(url.searchParams.get("limit") || "15", 10) || 15));
-    var searchParams = new URLSearchParams({ query: query, fmt: "json", limit: String(limit) });
-    upstreamUrl = MUSICBRAINZ_BASE + "artist?" + searchParams.toString();
-  } else {
-    var match = url.pathname.match(/^\/api\/artists\/([^/]+)\/recordings$/);
-    if (!match) {
-      return addCors(json({ error: "Unknown endpoint." }, 404), origin);
-    }
-
-    var mbid = match[1];
-    if (!UUID_RE.test(mbid)) {
-      return addCors(json({ error: "The artist ID must be a valid MusicBrainz UUID." }, 400), origin);
-    }
-
-    var recordingLimit = Math.min(100, Math.max(1, Number.parseInt(url.searchParams.get("limit") || "100", 10) || 100));
-    var offset = Math.min(100000, Math.max(0, Number.parseInt(url.searchParams.get("offset") || "0", 10) || 0));
-    var recordingParams = new URLSearchParams({
-      artist: mbid,
-      inc: "artist-credits isrcs url-rels",
-      fmt: "json",
-      limit: String(recordingLimit),
-      offset: String(offset)
-    });
-    upstreamUrl = MUSICBRAINZ_BASE + "recording?" + recordingParams.toString();
-  }
-
-  return addCors(await musicBrainzResponse(upstreamUrl), origin);
+  return addCors(json({ error: "Unknown endpoint." }, 404), origin);
 }
 
 addEventListener("fetch", function(event) {
