@@ -102,3 +102,11 @@ There's 3 dollars. Over There.
 
 ---
 *TOTALCHART — built with HTML, questionable levels of enthusiasm, and the determination to make music statistics less annoying.*
+
+## EXPERIMENTAL SPOTIFY PLAY COUNTS
+
+An isolated adapter now exists at `js/spotify-playcounts.js`. It builds the documented `getTrack` Pathfinder request and parses `data.trackUnion.playcount` into a sourced lifetime-playcount observation shape.
+
+This is **not connected to the homepage yet** and has not passed a live end-to-end request. Spotify's Pathfinder interface is undocumented and requires web-player authentication headers. The adapter accepts credentials from an explicitly supplied integration; it does not collect, refresh, store, or log account cookies or tokens. Do not paste session credentials into the repository or commit them.
+
+The adapter deliberately keeps a missing `playcount` as unavailable rather than converting it to zero. Before integration, the authentication and request path need a secure design, and the response needs a live test against multiple tracks.
