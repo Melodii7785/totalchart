@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>TOTALCHART — Cross-format music database</title>
+  <title>TotalChart — Music Statistics on the Interweb!</title>
   <style>
     body {
       background: white;
@@ -52,8 +52,9 @@
 </head>
 <body>
 <header id="home">
-  <h1>TOTALCHART</h1>
-  <p>A cross-format music database. We count the things that can actually be counted.</p>
+  <h1>TotalChart</h1>
+  <p>The interweb's music statistics website that counts EVERY type of sale (and the new technology, streaming)!</p>
+  <p>Welcome! Search your favorite artists, albums and songs to see what we can find from charts, sales, and streaming statistics.</p>
   <nav>
     <a href="#home">Home</a><a href="#search">Search</a><a href="#methodology">Methodology</a><a href="#about">About</a>
   </nav>
@@ -61,8 +62,8 @@
 
 <main>
   <section id="search">
-    <h2>Search Spotify</h2>
-    <p>Find a track, album, or artist. Select a result to open its TOTALCHART page.</p>
+    <h2>Search the music database!</h2>
+    <p>Find a track, album, or artist in the Spotify catalogue. Select a result to visit its TotalChart page!</p>
     <form id="search-form" class="controls">
       <label for="search-query">Search:</label>
       <input id="search-query" type="search" size="34" placeholder="Track, album, or artist name" autocomplete="off" required>
@@ -75,7 +76,7 @@
       </select>
       <button id="search-button" type="submit">Search</button>
     </form>
-    <p id="search-status" class="small status" aria-live="polite">Ready. Search the Spotify catalogue.</p>
+    <p id="search-status" class="small status" aria-live="polite">Ready! Search the music database!</p>
     <div id="search-results"></div>
   </section>
 
@@ -87,8 +88,8 @@
 
   <hr>
   <section id="methodology">
-    <h2>Methodology &amp; data rules</h2>
-    <p><strong>Spotify plays are not sales.</strong> TOTALCHART keeps lifetime Spotify playcounts, physical sales, and paid digital purchases as separate measurements. The raw numbers are never added together just because they are numbers.</p>
+    <h2>How we count things (Methodology &amp; data rules)</h2>
+    <p><strong>Spotify plays are not sales!</strong> We keep lifetime Spotify playcounts, physical sales, and paid digital purchases separate. Just because they're all numbers doesn't mean we can add them together. That wouldn't be fair!</p>
     <ol>
       <li><strong>Streaming:</strong> TOTALCHART reads the playcount exposed by Spotify's Web Player Pathfinder. It is an undocumented source, is marked unofficial, and is captured with a timestamp.</li>
       <li><strong>Physical sales:</strong> reported units must identify the product, source, territory, reporting period, and whether the number is reported or estimated.</li>
@@ -96,21 +97,21 @@
       <li><strong>Combined ranking:</strong> a cross-format score will only be calculated when comparable, sourced data exists for the selected entries and a transparent normalization method has been defined. Missing data is not zero.</li>
       <li><strong>Coverage:</strong> country, period, product type, and source methodology must be visible. A worldwide lifetime count cannot be fairly compared with a one-week country-specific number without explaining the difference.</li>
     </ol>
-    <p>At present, physical and digital sales providers are not connected, so those fields and the combined score are shown as unavailable or not calculated. This is deliberate: a made-up total is not a chart.</p>
+    <p>Right now, we haven't connected any physical or digital sales providers, so those numbers and the combined score are unavailable. We won't make up a number just to fill a space. That's not a chart!</p>
     <p class="small">Spotify lifetime playcounts are not an official sales or certification figure. A returned Spotify value of 0 may represent fewer than 1,000 plays; it is not proof of an exact zero.</p>
   </section>
 
   <hr>
   <section id="about">
-    <h2>About TOTALCHART</h2>
-    <p>TOTALCHART is an independent project for exploring music performance across eras and formats. Search results and metadata are fetched when requested; there is no preloaded artist or song catalogue.</p>
-    <p>Spotify catalogue content is linked back to its corresponding Spotify track, album, or artist page. Spotify's artist overview supplies the current Top 10 list shown here; that list is not presented as an official chart.</p>
+    <h2>About TotalChart</h2>
+    <p>TotalChart is an independent little project for looking at music across different eras and formats. Search results and catalogue information are fetched when you ask for them. We don't have a giant list of songs sitting here already!</p>
+    <p>Spotify catalogue results link back to their Spotify track, album, or artist pages. The artist overview's Top 10 list is included for reference, but it is not an official chart. Just so we're clear!</p>
     <p>Project repository: <a href="https://github.com/Melodii7785/totalchart">github.com/Melodii7785/totalchart</a>.</p>
   </section>
 </main>
 
 <footer>
-  <p class="small">TOTALCHART — built with HTML, stubbornness, and at least three dollars. Over there.</p>
+  <p class="small">TotalChart © 1998–2026. Made with HTML, stubbornness, and at least three dollars. Over there.</p>
 </footer>
 
 <script type="module">
