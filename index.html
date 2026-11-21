@@ -58,6 +58,34 @@
 </section>
 
 <hr>
+<section id="discovery">
+  <h2>MusicBrainz artist discovery</h2>
+  <p>Search the MusicBrainz catalogue, choose the correct artist, and browse their recording credits. This imports catalogue metadata only; it does not invent or retrieve streaming statistics.</p>
+  <form id="mb-search-form" class="controls">
+    <label for="mb-search">Artist name:</label>
+    <input id="mb-search" type="search" size="28" placeholder="Try Rihanna, Beyoncé, Britney Spears..." autocomplete="off" required>
+    <button type="submit">Search MusicBrainz</button>
+  </form>
+  <p id="mb-status" class="small" aria-live="polite">Ready. Search MusicBrainz to find an artist.</p>
+  <div id="mb-artist-results"></div>
+  <section id="mb-selected" hidden>
+    <h3 id="mb-selected-name"></h3>
+    <p id="mb-selected-info" class="small"></p>
+    <p>
+      <button type="button" id="mb-browse">Browse recordings</button>
+      <button type="button" id="mb-export" disabled>Export catalogue JSON</button>
+    </p>
+    <p id="mb-recording-status" class="small" aria-live="polite"></p>
+    <table id="mb-recording-table" hidden>
+      <thead><tr><th>Recording</th><th>First release</th><th>Duration</th><th>ISRC</th></tr></thead>
+      <tbody id="mb-recording-rows"></tbody>
+    </table>
+    <p><button type="button" id="mb-load-more" hidden>Load more recordings</button></p>
+  </section>
+  <p class="small">Catalogue source: <a href="https://musicbrainz.org/" target="_blank" rel="noopener">MusicBrainz</a>. MusicBrainz data is identification metadata, not sales or streaming evidence.</p>
+</section>
+
+<hr>
 <section id="charts">
   <h2>Song database</h2>
   <p><span id="result-count" class="count">0</span> songs shown.</p>
@@ -107,7 +135,9 @@
 </main>
 <footer><p class="small">TOTALCHART — made of HTML, stubbornness, and at least three dollars. Over there.</p></footer>
 
-<script>
+<script type="module">
+  import { searchArtists, browseRecordings, toArtistRecord, toRecordingRecord, musicBrainzSource } from "./js/musicbrainz.js";
+
   // Values are deliberately kept separate by format. null means no usable figure is available.
   const songs = [
     {id:"toxic", title:"Toxic", artist:"Britney Spears", snapshot:2116600610, physical:null, digital:null, status:"Partial", note:"Transcribed from the user's Spotify screenshot; counter type, territory and capture date unverified."},
@@ -234,6 +264,257 @@
   });
   artistFilter.addEventListener("change", render);
   sortBy.addEventListener("change", render);
+
+  // MusicBrainz discovery is deliberately separate from commercial statistics.
+  const mbForm = document.getElementById("mb-search-form");
+  const mbSearch = document.getElementById("mb-search");
+  const mbStatus = document.getElementById("mb-status");
+  const mbResults = document.getElementById("mb-artist-results");
+  const mbSelected = document.getElementById("mb-selected");
+  const mbSelectedName = document.getElementById("mb-selected-name");
+  const mbSelectedInfo = document.getElementById("mb-selected-info");
+  const mbBrowseButton = document.getElementById("mb-browse");
+  const mbExportButton = document.getElementById("mb-export");
+  const mbRecordingStatus = document.getElementById("mb-recording-status");
+  const mbRecordingTable = document.getElementById("mb-recording-table");
+  const mbRecordingRows = document.getElementById("mb-recording-rows");
+  const mbLoadMoreButton = document.getElementById("mb-load-more");
+
+  let mbActiveArtist = null;
+  let mbRecordings = [];
+  let mbRecordingCount = 0;
+  let mbNextOffset = 0;
+
+  const mbDatasetPromise = fetch("./data/observations.json")
+    .then(response => {
+      if (!response.ok) throw new Error("Could not load the base dataset.");
+      return response.json();
+    })
+    .catch(() => ({
+      schema_version: "1.0.0",
+      updated_at: new Date().toISOString(),
+      artists: [],
+      recordings: [],
+      observations: []
+    }));
+
+  function mbCell(row, value) {
+    const cell = document.createElement("td");
+    cell.textContent = value || "—";
+    row.appendChild(cell);
+    return cell;
+  }
+
+  function mbClearSelection() {
+    mbActiveArtist = null;
+    mbRecordings = [];
+    mbRecordingCount = 0;
+    mbNextOffset = 0;
+    mbSelected.hidden = true;
+    mbRecordingRows.replaceChildren();
+    mbRecordingTable.hidden = true;
+    mbLoadMoreButton.hidden = true;
+    mbExportButton.disabled = true;
+  }
+
+  function mbSelectArtist(artist) {
+    mbActiveArtist = artist;
+    mbRecordings = [];
+    mbRecordingCount = 0;
+    mbNextOffset = 0;
+    mbSelected.hidden = false;
+    mbSelectedName.textContent = artist.name;
+    const area = artist.area?.name || artist.country || "Area not listed";
+    const life = artist["life-span"] || {};
+    const years = [life.begin, life.end].filter(Boolean).join(" – ");
+    mbSelectedInfo.textContent = [
+      artist.type || "Artist type not listed",
+      area,
+      artist.disambiguation || "",
+      years
+    ].filter(Boolean).join(" · ");
+
+    const link = document.createElement("a");
+    link.href = "https://musicbrainz.org/artist/" + encodeURIComponent(artist.id);
+    link.target = "_blank";
+    link.rel = "noopener";
+    link.textContent = "Open this artist on MusicBrainz";
+    mbSelectedInfo.append(" · ", link);
+
+    mbRecordingStatus.textContent = "Artist selected. Browse recordings to retrieve catalogue entries.";
+    mbRecordingRows.replaceChildren();
+    mbRecordingTable.hidden = true;
+    mbLoadMoreButton.hidden = true;
+    mbExportButton.disabled = false;
+    mbStatus.textContent = "Selected " + artist.name + ". Artist identity is not a performance statistic.";
+  }
+
+  function mbRenderArtists(artists) {
+    mbResults.replaceChildren();
+    if (!artists.length) {
+      const p = document.createElement("p");
+      p.className = "unavailable";
+      p.textContent = "No artist matches were returned. Try a different spelling.";
+      mbResults.appendChild(p);
+      return;
+    }
+
+    const table = document.createElement("table");
+    const head = document.createElement("thead");
+    const headRow = document.createElement("tr");
+    ["Artist", "Area", "Type / disambiguation", "Action"].forEach(label => {
+      const th = document.createElement("th");
+      th.textContent = label;
+      headRow.appendChild(th);
+    });
+    head.appendChild(headRow);
+    table.appendChild(head);
+
+    const body = document.createElement("tbody");
+    artists.forEach(artist => {
+      const row = document.createElement("tr");
+      const nameCell = document.createElement("td");
+      const link = document.createElement("a");
+      link.href = "https://musicbrainz.org/artist/" + encodeURIComponent(artist.id);
+      link.target = "_blank";
+      link.rel = "noopener";
+      link.textContent = artist.name;
+      nameCell.appendChild(link);
+      row.appendChild(nameCell);
+      mbCell(row, artist.area?.name || artist.country || "—");
+      mbCell(row, [artist.type, artist.disambiguation].filter(Boolean).join(" · ") || "—");
+      const actionCell = document.createElement("td");
+      const button = document.createElement("button");
+      button.type = "button";
+      button.textContent = "Select artist";
+      button.addEventListener("click", () => mbSelectArtist(artist));
+      actionCell.appendChild(button);
+      row.appendChild(actionCell);
+      body.appendChild(row);
+    });
+    table.appendChild(body);
+    mbResults.appendChild(table);
+  }
+
+  function mbFormatDuration(milliseconds) {
+    if (!Number.isInteger(milliseconds) || milliseconds < 0) return "—";
+    const seconds = Math.floor(milliseconds / 1000);
+    return Math.floor(seconds / 60) + ":" + String(seconds % 60).padStart(2, "0");
+  }
+
+  function mbRenderRecordings() {
+    mbRecordingRows.replaceChildren();
+    mbRecordings.forEach(recording => {
+      const row = document.createElement("tr");
+      const titleCell = document.createElement("td");
+      const link = document.createElement("a");
+      link.href = "https://musicbrainz.org/recording/" + encodeURIComponent(recording.id);
+      link.target = "_blank";
+      link.rel = "noopener";
+      link.textContent = recording.title;
+      titleCell.appendChild(link);
+      row.appendChild(titleCell);
+      mbCell(row, recording["first-release-date"] || "—");
+      mbCell(row, mbFormatDuration(recording.length));
+      mbCell(row, Array.isArray(recording.isrcs) ? recording.isrcs.join(", ") : "—");
+      mbRecordingRows.appendChild(row);
+    });
+    mbRecordingTable.hidden = mbRecordings.length === 0;
+    mbExportButton.disabled = !mbActiveArtist;
+    mbLoadMoreButton.hidden = mbNextOffset >= mbRecordingCount || mbRecordingCount === 0;
+  }
+
+  async function mbLoadRecordings() {
+    if (!mbActiveArtist) return;
+    mbBrowseButton.disabled = true;
+    mbLoadMoreButton.disabled = true;
+    mbRecordingStatus.textContent = "Asking MusicBrainz for recordings…";
+    try {
+      const result = await browseRecordings(mbActiveArtist.id, 100, mbNextOffset);
+      const page = Array.isArray(result.recordings) ? result.recordings : [];
+      const seen = new Set(mbRecordings.map(item => item.id));
+      page.forEach(item => { if (!seen.has(item.id)) mbRecordings.push(item); });
+      mbRecordingCount = Number(result["recording-count"] || mbRecordingCount || 0);
+      mbNextOffset += page.length;
+      mbRenderRecordings();
+      mbRecordingStatus.textContent = mbRecordings.length + " of " + mbRecordingCount + " recordings loaded. These are catalogue records, not stream totals.";
+    } catch (error) {
+      mbRecordingStatus.textContent = error.message;
+    } finally {
+      mbBrowseButton.disabled = false;
+      mbLoadMoreButton.disabled = false;
+    }
+  }
+
+  mbForm.addEventListener("submit", async event => {
+    event.preventDefault();
+    const query = mbSearch.value.trim();
+    if (query.length < 2) {
+      mbStatus.textContent = "Enter at least two characters.";
+      return;
+    }
+    mbClearSelection();
+    mbResults.replaceChildren();
+    mbStatus.textContent = "Searching MusicBrainz…";
+    const submitButton = mbForm.querySelector('button[type="submit"]');
+    submitButton.disabled = true;
+    try {
+      const result = await searchArtists(query, 15);
+      const artists = Array.isArray(result.artists) ? result.artists : [];
+      mbRenderArtists(artists);
+      mbStatus.textContent = artists.length + " artist match(es) returned by MusicBrainz.";
+    } catch (error) {
+      mbStatus.textContent = error.message;
+    } finally {
+      submitButton.disabled = false;
+    }
+  });
+
+  mbBrowseButton.addEventListener("click", mbLoadRecordings);
+  mbLoadMoreButton.addEventListener("click", mbLoadRecordings);
+
+  mbExportButton.addEventListener("click", async () => {
+    if (!mbActiveArtist) return;
+    mbExportButton.disabled = true;
+    mbStatus.textContent = "Preparing the catalogue export…";
+    try {
+      const base = await mbDatasetPromise;
+      const dataset = {
+        schema_version: "1.0.0",
+        updated_at: new Date().toISOString(),
+        artists: Array.isArray(base.artists) ? [...base.artists] : [],
+        recordings: Array.isArray(base.recordings) ? [...base.recordings] : [],
+        observations: Array.isArray(base.observations) ? [...base.observations] : []
+      };
+
+      const artistsById = new Map(dataset.artists.map(item => [item.id, item]));
+      artistsById.set(toArtistRecord(mbActiveArtist).id, toArtistRecord(mbActiveArtist));
+      dataset.artists = [...artistsById.values()].sort((a, b) => a.name.localeCompare(b.name));
+
+      const recordingsById = new Map(dataset.recordings.map(item => [item.id, item]));
+      mbRecordings.forEach(item => {
+        const record = toRecordingRecord(item, mbActiveArtist);
+        recordingsById.set(record.id, record);
+      });
+      dataset.recordings = [...recordingsById.values()].sort((a, b) => a.title.localeCompare(b.title));
+
+      const blob = new Blob([JSON.stringify(dataset, null, 2)], { type: "application/json" });
+      const objectUrl = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = objectUrl;
+      anchor.download = "totalchart-musicbrainz-import-" + new Date().toISOString().slice(0, 10) + ".json";
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      URL.revokeObjectURL(objectUrl);
+      mbStatus.textContent = "Export prepared: " + dataset.artists.length + " artist record(s), " + dataset.recordings.length + " recording record(s), and " + dataset.observations.length + " statistic observation(s). No new statistics were created.";
+    } catch (error) {
+      mbStatus.textContent = "Export failed: " + error.message;
+    } finally {
+      mbExportButton.disabled = false;
+    }
+  });
+
   render();
 </script>
 </body>
