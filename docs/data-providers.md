@@ -1,72 +1,62 @@
 # Data providers
 
-TOTALCHART separates catalogue discovery from commercial-performance observations. Providers can be replaced without changing the canonical JSON format in `data/schema.json`.
+TOTALCHART separates catalogue metadata from commercial-performance observations. A Spotify ID or a track title is not a sales statistic.
 
-## 1. MusicBrainz — artist and recording discovery
+## 1. Spotify catalogue search
 
-**Status:** implemented.
+**Status:** wired into the new search interface; Worker deployment is pending.
 
-The browser calls the TOTALCHART Worker proxy:
+The browser calls the TOTALCHART Worker:
 
-- `GET /api/artists/search?q=<name>&limit=15`
-- `GET /api/artists/<musicbrainz-id>/recordings?limit=100&offset=0`
-- `GET /health`
+GET /api/spotify/search?q=<query>&type=all|track|album|artist
 
-The Worker forwards requests to the MusicBrainz Web Service v2 and supplies the application User-Agent. Only these fixed routes are exposed; the Worker is not a general-purpose URL proxy.
+Search results come from Spotify's catalogue search endpoint and may contain tracks, albums, and artists. The returned IDs are Spotify IDs, and each result links back to its corresponding Spotify page.
 
-MusicBrainz is a metadata catalogue. Its artist and recording results do not provide sales or streaming counts. Its API is free for non-commercial use, does not require an API key, requires a meaningful User-Agent, and asks clients to stay at or below one request per second. The browser adapter queues requests at least 1.1 seconds apart.
+Official reference: https://developer.spotify.com/documentation/web-api/reference/search
 
-References:
-- https://musicbrainz.org/doc/MusicBrainz_API
-- https://musicbrainz.org/doc/MusicBrainz_API/Rate_Limiting
+## 2. Spotify entity lookup
 
-## 2. Spotify Charts public web feed — chart-period performance
+**Status:** implemented in the Worker source; Worker deployment is pending.
 
-**Status:** experimental.
+The browser requests one selected Spotify entity:
 
-The Worker reads the public web-service route used by Spotify Charts:
+GET /api/spotify/lookup?type=track|album|artist&id=<spotify-id>
 
-`https://charts-spotify-com-service.spotify.com/public/v0/charts`
+- **Track:** Pathfinder getTrack provides track metadata, associated album and artist IDs, and the lifetime playcount.
+- **Album:** Spotify catalogue metadata provides album ID, artists, release date, album type, and track count.
+- **Artist:** Pathfinder queryArtistOverview provides artist metadata and the current Top 10 list from the Spotify Web Player artist overview. Each listed track is looked up separately for its playcount.
 
-This is an undocumented endpoint of Spotify's Charts website, not a supported Spotify Web API resource. Its response format or availability can change without notice. The current connector treats it as the Global weekly chart feed and only imports fields actually present in the response.
+The Artist Top 10 is a Web Player display list, not an official chart. Spotify removed the public Web API GET /artists/{id}/top-tracks endpoint in February 2026, so TOTALCHART does not depend on it.
 
-When a row includes `chartEntryData.rankingMetric.type === "STREAMS"`, its value is saved as `spotify_chart_eligible_streams` with a weekly period. If the response does not include a stream metric, TOTALCHART does not invent one; it can still preserve the chart position.
+Official changelog: https://developer.spotify.com/documentation/web-api/references/changes/february-2026
 
-**Critical limitation:** Spotify says its chart stream counts are filtered for chart eligibility. They can differ from the complete stream counts displayed elsewhere in Spotify. They are chart-period values, not lifetime totals.
+## 3. Spotify Web Player Pathfinder — lifetime playcounts
 
-References:
-- https://support.spotify.com/ve-en/artists/article/understanding-spotify-charts/
-- https://stackoverflow.com/questions/78645242/how-to-automatically-download-csv-file-from-spotifys-global-chart
+**Status:** experimental. The previous single-track route was successfully tested by the project owner. The new search-and-entity routes are committed but require Worker deployment.
 
-## 3. Spotify Web Player Pathfinder — experimental lifetime playcounts
+The Worker uses the undocumented Web Player Pathfinder getTrack operation and reads data.trackUnion.playcount. It uses the anonymous Web Player token flow; it does not request a user's Spotify login, cookies, or personal access token.
 
-**Status:** experimental Worker route and manual single-track lookup implemented; live end-to-end verification is still pending.
+Each reported playcount includes:
+- Spotify track ID.
+- Metric key spotify_lifetime_playcount.
+- Unit plays.
+- Source label Spotify Web Player Pathfinder.
+- Capture timestamp.
+- Reported or unavailable status.
 
-The browser sends a Spotify track ID to the TOTALCHART Worker:
+A missing count remains unavailable, never zero. A returned 0 is preserved with an interpretation warning because Spotify may use that value for tracks below 1,000 plays. The interface is undocumented and may change or stop working.
 
-`GET /api/spotify/playcount?id=<spotify-track-id>`
+## 4. Physical sales, digital purchases, and combined score
 
-The Worker attempts to obtain an anonymous Spotify Web Player access token using the publicly documented-by-community TOTP flow, then calls the undocumented Pathfinder `getTrack` operation and reads `data.trackUnion.playcount`. No personal Spotify account cookies, login credentials, or user access tokens are requested or stored.
+**Status:** not connected.
 
-Returned observations identify the source as `Spotify Web Player Pathfinder`, the metric as `spotify_lifetime_playcount`, and include an observation timestamp. A missing field is stored as unavailable, never as zero. A returned value of `0` is preserved, but is displayed with a warning: community API documentation reports that Spotify may use this value for tracks below 1,000 plays, so it must not be interpreted as proof of an exact zero.
+TOTALCHART does not currently have a verified free provider for physical sales or paid digital downloads. It does not fill those fields with estimates or Spotify popularity scores.
 
-This route is not yet matched automatically to MusicBrainz recordings. The site currently offers a manual lookup by Spotify track URL or ID. Spotify can change or restrict the token flow, query hash, headers, or response format at any time. The route is not a supported Spotify API and currently has no guaranteed availability. Do not use this data as an audited sales or certification figure.
+A cross-format score is not calculated yet. Raw lifetime streams, paid downloads, physical singles, and album purchases have different units and cannot be summed directly. Any future combined ranking must state its territory, time window, source coverage, treatment of missing values, and normalization formula. Missing coverage must not silently lower a score or be treated as zero.
 
-The recording browse request also asks MusicBrainz for `url-rels`. Where a recording has exactly one explicit URL relationship to an individual Spotify track, TOTALCHART exposes a per-recording lookup button. It does not infer a Spotify ID from a title, artist name, ISRC alone, or an album URL. Multiple distinct Spotify track links are treated as ambiguous and are not used.
+## Architecture
 
-## Import and export
-
-The browser never writes directly to the repository. Use the export buttons to download a JSON dataset containing the catalogue entities and observations. Review it before replacing or merging `data/observations.json` in GitHub.
-
-The export preserves existing arrays and merges entries by stable ID. Re-exporting the same chart date updates matching observation IDs instead of creating duplicates.
-
-## What we are not using
-
-- Last.fm: excluded from the provider plan.
-- Soundcharts and Chartmetric: paid services.
-- Apify scrapers: excluded because ongoing record collection costs money.
-- Spotify Web API popularity: not treated as a stream-count substitute.
-
-## Free-operation target
-
-The site remains static on GitHub Pages. The small Cloudflare Worker only handles the two catalogue/chart upstream requests. It uses no database, no API keys, and no paid third-party analytics service. Keep an eye on the Cloudflare account's plan and usage; do not enable paid products for TOTALCHART.
+- GitHub Pages serves the static HTML, CSS, and browser modules.
+- The Cloudflare Worker provides fixed Spotify search and lookup routes.
+- The Worker caches entity/search responses in memory and caches playcounts to reduce repeated upstream calls.
+- No database or paid analytics service is required by the current prototype.
