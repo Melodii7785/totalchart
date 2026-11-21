@@ -103,7 +103,9 @@ async function requestJson(path) {
     }
 
     throw new Error(
-      detail || `TOTALCHART request failed (HTTP ${response.status}).`
+      detail
+        ? `${detail} (TOTALCHART HTTP ${response.status}).`
+        : `TOTALCHART request failed (HTTP ${response.status}).`
     );
   }
 
