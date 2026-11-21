@@ -109,4 +109,4 @@ The manual single-track lookup now calls the TOTALCHART Worker at `/api/spotify/
 
 This is experimental and **not live end-to-end verified yet**. Spotify may change the anonymous token flow, persisted-query hash, headers, or response format. A missing playcount remains unavailable, not zero. Spotify may use a returned value of `0` for tracks below 1,000 plays, so the UI flags that value rather than treating it as an exact zero.
 
-The manual lookup accepts one Spotify track URL or ID. Automatic matching between MusicBrainz recordings and Spotify track IDs is a separate task. See [docs/data-providers.md](docs/data-providers.md) for the endpoint and caveats.
+The manual lookup accepts one Spotify track URL or ID. Where MusicBrainz has exactly one explicit Spotify track URL attached to an individual recording, that recording also gets its own playcount lookup button. TOTALCHART does not guess Spotify IDs from titles, artist names, ISRCs alone, or album links. See [docs/data-providers.md](docs/data-providers.md) for the endpoint and caveats.
