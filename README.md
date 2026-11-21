@@ -69,9 +69,22 @@ The artist Top 10 is **not an official chart**. Spotify removed the public Web A
 
 The Pathfinder interface and anonymous token flow are undocumented and can change without notice. Playcounts are timestamped and identified as an unofficial source. A value of 0 may represent fewer than 1,000 plays; it is not proof of an exact zero.
 
+### IFPI global chart references
+
+**Status:** linked as an official worldwide reference; IFPI figures are not republished in TotalChart.
+
+The UI links to IFPI's official Global Charts pages from track, album, and artist views.
+
+- The Global Album Sales Chart counts physical album sales plus full-album downloads as units; the public chart does not provide a separate physical-versus-download split.
+- The Global Vinyl Album Chart counts vinyl units separately.
+- The Global Single Chart includes single-track downloads and streaming across paid and ad-supported platforms. It is not a pure paid-download sales count.
+- The Global Artist Chart covers catalogue consumption across formats; its underlying converted chart units are not published as artist lifetime sales.
+
+IFPI's website terms restrict reproduction and redistribution of site content. IFPI's Global Music Report usage rules also require an External Use Licence for external use of its Data and Analysis content. TotalChart therefore links to the official source and does not copy its rankings or figures into the app. See [IFPI site terms](https://www.ifpi.org/terms-conditions/) and [Global Music Report content usage rules](https://globalmusicreport.ifpi.org/terms-of-use).
+
 ### Physical and digital sales
 
-No physical-sales or paid-download provider is connected yet. Those fields are shown as unavailable, not guessed. The combined score is not calculated while those inputs are missing.
+Separate item-level physical sales and paid-download providers are not connected yet. The IFPI references help users consult annual worldwide charts, but they do not provide a public, reusable all-release sales database for this app. Those fields remain unavailable rather than guessed. The combined score is not calculated while comparable inputs are missing.
 
 Provider details and caveats live in docs/data-providers.md. The canonical data format is in data/schema.json.
 
