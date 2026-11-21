@@ -428,7 +428,7 @@ async function fetchSpotifyTrackPlaycount(trackId) {
   }
 
   var normalized = String(rawCount).replace(/,/g, "").trim();
-  if (!/^\\d+$/.test(normalized)) {
+  if (!/^\d+$/.test(normalized)) {
     throw new Error("Spotify returned a playcount in an unexpected format.");
   }
   var count = Number(normalized);
