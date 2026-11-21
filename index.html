@@ -126,6 +126,7 @@
   const entityContent = document.getElementById("entity-content");
 
   let searchGeneration = 0;
+  let searchInFlight = false;
   let entityGeneration = 0;
 
   function make(tag, text) {
@@ -387,25 +388,53 @@
     }
   }
 
-  searchForm.addEventListener("submit", async event => {
+    searchForm.addEventListener("submit", async event => {
     event.preventDefault();
+
+    if (searchInFlight) return;
+
     const generation = ++searchGeneration;
     const query = searchQuery.value.trim();
+
+    if (query.length < 2) {
+      searchStatus.textContent = "Enter at least two characters.";
+      searchQuery.focus();
+      return;
+    }
+
+    searchInFlight = true;
     searchButton.disabled = true;
-    searchStatus.textContent = "Searching Spotify…";
+    searchQuery.disabled = true;
+    searchType.disabled = true;
+    searchButton.textContent = "Searching...";
+    searchStatus.textContent = "Searching Spotify. Please wait...";
     searchResults.replaceChildren();
     entityPage.hidden = true;
 
     try {
       const result = await searchSpotify(query, searchType.value);
+
       if (generation !== searchGeneration) return;
-      showSearchResults(result.results || []);
-      searchStatus.textContent = (result.results || []).length + " result(s) found for “" + query + "”.";
+
+      const results = result.results || [];
+      showSearchResults(results);
+
+      searchStatus.textContent = results.length
+        ? `${results.length} result(s) found for "${query}".`
+        : `No results found for "${query}". Try a different search.`;
+
     } catch (error) {
       if (generation !== searchGeneration) return;
-      searchStatus.textContent = error.message;
+
+      searchResults.replaceChildren();
+      searchStatus.textContent = error.message || "Something went wrong. Please try again.";
+
     } finally {
-      if (generation === searchGeneration) searchButton.disabled = false;
+      searchInFlight = false;
+      searchButton.disabled = false;
+      searchQuery.disabled = false;
+      searchType.disabled = false;
+      searchButton.textContent = "Search";
     }
   });
 </script>
