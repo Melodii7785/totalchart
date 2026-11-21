@@ -78,6 +78,7 @@
     </form>
     <p id="search-status" class="small status" aria-live="polite">Ready! Search the music database!</p>
     <div id="search-results"></div>
+    <div id="apple-search-results"></div>
   </section>
 
   <section id="entity-page" class="panel" hidden>
@@ -123,6 +124,7 @@
   const searchButton = document.getElementById("search-button");
   const searchStatus = document.getElementById("search-status");
   const searchResults = document.getElementById("search-results");
+  const appleSearchResults = document.getElementById("apple-search-results");
   const entityPage = document.getElementById("entity-page");
   const entityTitle = document.getElementById("entity-title");
   const entitySubtitle = document.getElementById("entity-subtitle");
@@ -233,6 +235,34 @@
       table.appendChild(body);
       searchResults.appendChild(table);
     });
+  }
+
+  function showAppleSearchResults(results) {
+    appleSearchResults.replaceChildren();
+    if (!results.length) return;
+
+    appleSearchResults.appendChild(make("h3", "Apple Music discoveries"));
+    appleSearchResults.appendChild(make("p", "These are the Apple Music catalogue matches used for cross-service discovery. Spotify matches appear above."));
+    const table = make("table");
+    const head = make("thead");
+    const header = make("tr");
+    ["Name", "Artist / release", "Apple Music link"].forEach(value => header.appendChild(make("th", value)));
+    head.appendChild(header);
+    table.appendChild(head);
+
+    const body = make("tbody");
+    results.forEach(item => {
+      const row = make("tr");
+      appendCell(row, item.name);
+      appendCell(row, (item.artists || []).map(artist => artist.name).join(", ") || item.album_name || "—");
+      const cell = make("td");
+      if (item.url) cell.appendChild(spotifyLink(item.url, "Open on Apple Music"));
+      else cell.textContent = "Unavailable";
+      row.appendChild(cell);
+      body.appendChild(row);
+    });
+    table.appendChild(body);
+    appleSearchResults.appendChild(table);
   }
 
   function renderTrack(track) {
@@ -410,8 +440,9 @@
     searchQuery.disabled = true;
     searchType.disabled = true;
     searchButton.textContent = "Searching...";
-    searchStatus.textContent = "Searching Spotify. Please wait...";
+    searchStatus.textContent = "Asking Apple Music and Spotify. Please wait...";
     searchResults.replaceChildren();
+    appleSearchResults.replaceChildren();
     entityPage.hidden = true;
 
     try {
@@ -421,6 +452,7 @@
 
       const results = result.results || [];
       showSearchResults(results);
+      showAppleSearchResults(result.apple_results || []);
 
       searchStatus.textContent = results.length
         ? `${results.length} result(s) found for "${query}".`
@@ -430,6 +462,7 @@
       if (generation !== searchGeneration) return;
 
       searchResults.replaceChildren();
+      appleSearchResults.replaceChildren();
       searchStatus.textContent = error.message || "Something went wrong. Please try again.";
 
     } finally {
