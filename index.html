@@ -53,7 +53,7 @@
 <body>
 <header id="home">
   <h1>TotalChart</h1>
-  <p>The interweb's music statistics website that counts EVERY type of sale (and the new technology, streaming)!</p>
+  <p>The interweb's music statistics website for streaming, physical sales, and paid digital purchases — wherever reliable data is available!</p>
   <p>Welcome! Search your favorite artists, albums and songs to see what we can find from charts, sales, and streaming statistics.</p>
   <nav>
     <a href="#home">Home</a><a href="#search">Search</a><a href="#methodology">Methodology</a><a href="#about">About</a>
@@ -100,10 +100,12 @@
       <li><strong>Streaming:</strong> TOTALCHART reads the playcount exposed by Spotify's Web Player Pathfinder. It is an undocumented source, is marked unofficial, and is captured with a timestamp.</li>
       <li><strong>Physical sales:</strong> reported units must identify the product, source, territory, reporting period, and whether the number is reported or estimated.</li>
       <li><strong>Digital purchases:</strong> paid downloads must be kept separate from streams and from album purchases. An album purchase is not automatically counted as a purchase of every track on it.</li>
+      <li><strong>IFPI global charts:</strong> IFPI publishes annual worldwide charts. Its Global Album Sales Chart combines physical album sales and full-album downloads; its Global Single Chart combines single-track downloads and streaming. These are not interchangeable with separate physical-sales or paid-download totals.</li>
       <li><strong>Combined ranking:</strong> a cross-format score will only be calculated when comparable, sourced data exists for the selected entries and a transparent normalization method has been defined. Missing data is not zero.</li>
       <li><strong>Coverage:</strong> country, period, product type, and source methodology must be visible. A worldwide lifetime count cannot be fairly compared with a one-week country-specific number without explaining the difference.</li>
     </ol>
-    <p>Right now, we haven't connected any physical or digital sales providers, so those numbers and the combined score are unavailable. We won't make up a number just to fill a space. That's not a chart!</p>
+    <p>IFPI is connected as an official worldwide chart reference on artist, album, and track pages. Its charts are annual rankings, and some categories combine multiple formats. TotalChart links to IFPI's own pages instead of republishing its chart entries or figures here. Separate, item-level physical and paid-download sales therefore remain unavailable until a source permits that use.</p>
+    <p>We won't make up a number just to fill a space. That's not a chart!</p>
     <p class="small">Spotify lifetime playcounts are not an official sales or certification figure. A returned Spotify value of 0 may represent fewer than 1,000 plays; it is not proof of an exact zero.</p>
   </section>
 
@@ -122,6 +124,7 @@
 
 <script type="module">
   import { searchITunes, findSpotifyMatches, lookupSpotifyEntity } from "./js/spotify-catalog.js?v=20261121-spotify-id-finder";
+  import { getIfpiReference } from "./js/ifpi.js?v=20261121-ifpi-reference";
 
   const searchForm = document.getElementById("search-form");
   const searchQuery = document.getElementById("search-query");
@@ -189,6 +192,31 @@
     });
     table.appendChild(body);
     return table;
+  }
+
+  function renderIfpiReference(entityType) {
+    const reference = getIfpiReference(entityType);
+    if (!reference) return;
+
+    const panel = make("section");
+    panel.className = "panel";
+    panel.appendChild(make("h3", reference.heading));
+    panel.appendChild(make("p", reference.summary));
+    panel.appendChild(make("p", reference.limitation));
+
+    const links = make("p");
+    reference.links.forEach((item, index) => {
+      if (index) links.appendChild(document.createTextNode(" · "));
+      links.appendChild(externalLink(item.url, item.label));
+    });
+    panel.appendChild(links);
+
+    const note = make("p");
+    note.className = "small";
+    note.textContent = "Official source reference. TotalChart does not republish IFPI chart entries or figures here; see IFPI's own pages for the published rankings.";
+    panel.appendChild(note);
+
+    entityContent.appendChild(panel);
   }
 
   function showSearchResults(results) {
@@ -390,6 +418,7 @@
       entityContent.appendChild(make("p", "Note: Spotify may use 0 for fewer than 1,000 plays. This is not proof of an exact zero."));
     }
     if (track.observed_at) entityContent.appendChild(make("p", "Playcount captured: " + track.observed_at + " (UTC)"));
+    renderIfpiReference("track");
   }
 
   function renderAlbum(album) {
@@ -422,6 +451,7 @@
       { label: "Paid digital album purchases", value: "Unavailable", source: "No connected, verified source" },
       { label: "Cross-format score", value: "Not calculated", source: "Comparable sales data is not available yet" }
     ]));
+    renderIfpiReference("album");
   }
 
   function renderArtist(artist) {
@@ -473,6 +503,7 @@
       entityContent.appendChild(make("p", "Spotify did not return a Top 10 list for this artist."));
     }
     entityContent.appendChild(make("p", "Spotify top-track data is supplied by the Web Player artist overview. Playcounts are fetched individually from Pathfinder."));
+    renderIfpiReference("artist");
   }
 
   async function openEntity(type, id) {
