@@ -70,6 +70,40 @@ async function musicBrainzResponse(targetUrl) {
   });
 }
 
+async function spotifyChartsResponse() {
+  var upstream;
+  try {
+    upstream = await fetch("https://charts-spotify-com-service.spotify.com/public/v0/charts", {
+      headers: {
+        "Accept": "application/json",
+        "Origin": "https://charts.spotify.com",
+        "Referer": "https://charts.spotify.com/",
+        "User-Agent": USER_AGENT
+      },
+      cf: {
+        cacheEverything: true,
+        cacheTtl: 1800
+      }
+    });
+  } catch (error) {
+    return json({ error: "Spotify Charts could not be reached. Please try again later." }, 502);
+  }
+
+  var body = await upstream.text();
+  if (!upstream.ok) {
+    return json({ error: "Spotify Charts returned an error.", upstream_status: upstream.status }, 502);
+  }
+
+  return new Response(body, {
+    status: 200,
+    headers: {
+      "Content-Type": "application/json; charset=utf-8",
+      "Cache-Control": "public, max-age=60",
+      "X-Content-Type-Options": "nosniff"
+    }
+  });
+}
+
 async function handleRequest(request) {
   var url = new URL(request.url);
   var origin = request.headers.get("Origin");
@@ -95,6 +129,10 @@ async function handleRequest(request) {
       status: "ok",
       upstream: "MusicBrainz Web Service v2"
     }), origin);
+  }
+
+  if (url.pathname === "/api/spotify/global-weekly") {
+    return addCors(await spotifyChartsResponse(), origin);
   }
 
   var upstreamUrl;
