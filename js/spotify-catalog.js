@@ -102,6 +102,12 @@ async function requestJson(path) {
       );
     }
 
+    if (response.status === 502) {
+      throw new Error(
+        `TOTALCHART returned HTTP 502 (Worker gateway error). ${detail || "No error detail was provided."} The Worker does not expose the original upstream status or retry headers, so the cause is still unknown.`
+      );
+    }
+
     throw new Error(
       detail
         ? `${detail} (TOTALCHART HTTP ${response.status}).`
