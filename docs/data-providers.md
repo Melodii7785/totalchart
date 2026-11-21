@@ -52,6 +52,8 @@ Returned observations identify the source as `Spotify Web Player Pathfinder`, th
 
 This route is not yet matched automatically to MusicBrainz recordings. The site currently offers a manual lookup by Spotify track URL or ID. Spotify can change or restrict the token flow, query hash, headers, or response format at any time. The route is not a supported Spotify API and currently has no guaranteed availability. Do not use this data as an audited sales or certification figure.
 
+The recording browse request also asks MusicBrainz for `url-rels`. Where a recording has exactly one explicit URL relationship to an individual Spotify track, TOTALCHART exposes a per-recording lookup button. It does not infer a Spotify ID from a title, artist name, ISRC alone, or an album URL. Multiple distinct Spotify track links are treated as ambiguous and are not used.
+
 ## Import and export
 
 The browser never writes directly to the repository. Use the export buttons to download a JSON dataset containing the catalogue entities and observations. Review it before replacing or merging `data/observations.json` in GitHub.
