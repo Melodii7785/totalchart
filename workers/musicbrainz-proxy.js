@@ -580,7 +580,7 @@ async function handleRequest(request) {
     var offset = Math.min(100000, Math.max(0, Number.parseInt(url.searchParams.get("offset") || "0", 10) || 0));
     var recordingParams = new URLSearchParams({
       artist: mbid,
-      inc: "artist-credits isrcs",
+      inc: "artist-credits isrcs url-rels",
       fmt: "json",
       limit: String(recordingLimit),
       offset: String(offset)
