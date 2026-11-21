@@ -24,6 +24,9 @@ async function requestJson(path) {
   }
 
   if (!response.ok) {
+    if (response.status === 404 && path.indexOf("/api/spotify/") === 0) {
+      throw new Error("The Worker is still serving its older version. The new Spotify search and lookup routes need the updated Worker deployed.");
+    }
     throw new Error(data.detail || data.error || "TOTALCHART request failed (HTTP " + response.status + ").");
   }
   return data;
