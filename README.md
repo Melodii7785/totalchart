@@ -39,9 +39,9 @@ No React. No Tailwind. No package manager. No seventeen-step ritual. Just HTML, 
 ## WHAT WORKS SO FAR
 
 - A deliberately old-web-looking homepage.
-- A searchable local song catalogue and artist directory.
-- MusicBrainz artist search and recording discovery.
-- Export of discovered catalogue entities into the canonical JSON data format.
+- A search-first homepage with no preloaded artists or songs.
+- Live MusicBrainz artist search and recording discovery.
+- Artist and recording results fetched on demand and displayed in the browser.
 - An experimental Spotify Global weekly chart connector.
 - Dated chart observations, kept separate from lifetime stream totals.
 - Missing physical and digital sales are marked unavailable.
@@ -53,9 +53,9 @@ It's a prototype. Some bits are held together with enthusiasm and questionable l
 
 **We do not invent statistics.**
 
-The stream counts currently displayed were transcribed from a screenshot supplied for the prototype. They have not been independently verified and should not be treated as confirmed current Spotify totals.
+The homepage does not ship with preloaded artist or song statistics. Artist and recording metadata is fetched when someone searches. Performance statistics are a separate layer and are only displayed when a provider supplies a sourced figure.
 
-Physical and digital sales figures have not yet been researched for this prototype. Missing information is labelled as unavailable or not researched. It is NOT zero. An empty box is an empty box. It is not an invitation to make up 4.7 million copies.
+Missing information is labelled as unavailable or not researched. It is NOT zero. An empty box is an empty box. It is not an invitation to make up 4.7 million copies.
 
 Every statistic should eventually have:
 - A source.
@@ -73,7 +73,7 @@ The experimental Spotify Charts connector reads a public web endpoint used by Sp
 
 Provider details and caveats live in [docs/data-providers.md](docs/data-providers.md). The canonical format is in [data/schema.json](data/schema.json).
 
-The site does not write into GitHub automatically. Use the export button, review the downloaded JSON, then merge it into `data/observations.json` deliberately.
+The search interface displays live catalogue results; it does not pretend that those results are stored as verified commercial statistics. The canonical data format is available for reviewed imports into `data/observations.json`.
 
 ## RESEARCH STARTING POINTS
 
@@ -88,7 +88,7 @@ The next jobs include:
 - Individual song pages.
 - Individual artist pages with actual release data.
 - A proper data structure for figures and sources.
-- More artists, albums and singles.
+- Performance-data providers for artists and recordings selected through search.
 - A transparent chart calculation method.
 - A lot of research. A frankly unreasonable amount of research.
 
