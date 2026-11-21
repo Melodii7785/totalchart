@@ -20,6 +20,8 @@
     button { cursor: pointer; }
     button:disabled { cursor: wait; }
     table { border-collapse: collapse; width: 100%; margin: 12px 0; }
+    /* Keep wide result tables usable on phones without crushing every column. */
+    table { display: block; max-width: 100%; overflow-x: auto; }
     th, td {
       border: 1px solid #999;
       padding: 6px 7px;
