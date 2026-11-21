@@ -28,8 +28,11 @@ The goal is to make the data useful without making up numbers to fill empty boxe
 ## HOW TO RUN THIS THING
 
 1. Download or clone the repository.
-2. Open `index.html` in your browser.
-3. That's it. Go listen to Gimme More or something.
+2. Serve the folder over HTTP (for example, run `python -m http.server 5500` in the repository folder).
+3. Open `http://localhost:5500`.
+4. Or visit the hosted GitHub Pages site.
+
+The page now uses JavaScript modules and the catalogue proxy, so opening `index.html` directly as a `file://` URL is not a reliable way to run it.
 
 No React. No Tailwind. No package manager. No seventeen-step ritual. Just HTML, CSS, and vanilla JavaScript.
 
