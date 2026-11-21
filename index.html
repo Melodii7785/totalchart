@@ -3,449 +3,411 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>TOTALCHART — Music sales database</title>
+  <title>TOTALCHART — Cross-format music database</title>
   <style>
-    body { background: white; color: black; font-family: "Times New Roman", Times, serif; margin: 8px; }
-    a { color: #00e; } a:visited { color: #551a8b; }
+    body {
+      background: white;
+      color: black;
+      font-family: "Times New Roman", Times, serif;
+      margin: 8px;
+    }
+    a { color: #00e; }
+    a:visited { color: #551a8b; }
     header { border-bottom: 1px solid #888; padding-bottom: 8px; }
     nav a { margin-right: 12px; }
-    main { max-width: 1000px; }
-    table { border-collapse: collapse; width: 100%; margin: 12px 0; }
-    th, td { border: 1px solid #999; padding: 6px 7px; text-align: left; vertical-align: top; }
-    th { background: #eee; }
-    input, button { font: inherit; }
+    main { max-width: 1100px; }
+    input, select, button { font: inherit; }
     button { cursor: pointer; }
     button:disabled { cursor: wait; }
+    table { border-collapse: collapse; width: 100%; margin: 12px 0; }
+    th, td {
+      border: 1px solid #999;
+      padding: 6px 7px;
+      text-align: left;
+      vertical-align: top;
+    }
+    th { background: #eee; }
+    .controls {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      align-items: center;
+      margin: 12px 0;
+    }
+    .panel { border: 1px solid #888; padding: 10px; margin: 14px 0; }
+    .panel h2, .panel h3 { margin-top: 0; }
     .small { color: #555; font-size: .9em; }
     .muted { color: #777; font-style: italic; }
-    .controls { margin: 12px 0; display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
-    .panel { border: 1px solid #888; padding: 10px; margin: 14px 0; }
-    .panel h3 { margin-top: 0; }
     .status { min-height: 1.2em; }
-    @media (max-width: 650px) { table { font-size: .9em; } th, td { padding: 4px; } }
+    .entity-heading { margin-bottom: 4px; }
+    .entity-meta { margin-top: 4px; }
+    .id { overflow-wrap: anywhere; }
+    @media (max-width: 700px) {
+      table { font-size: .9em; }
+      th, td { padding: 4px; }
+    }
   </style>
 </head>
 <body>
 <header id="home">
   <h1>TOTALCHART</h1>
-  <p>The internet's music sales database.</p>
+  <p>A cross-format music database. We count the things that can actually be counted.</p>
   <nav>
-    <a href="#home">Home</a><a href="#search">Search</a><a href="#charts">Charts</a><a href="#methodology">Methodology</a><a href="#about">About</a>
+    <a href="#home">Home</a><a href="#search">Search</a><a href="#methodology">Methodology</a><a href="#about">About</a>
   </nav>
 </header>
 
 <main>
-  <section>
-    <h2>Search music</h2>
-    <p>Search for an artist. TOTALCHART fetches matching artist records from MusicBrainz; choose one to fetch its recordings. Nothing is preloaded.</p>
-    <form id="artist-search-form" class="controls">
-      <label for="artist-search">Artist:</label>
-      <input id="artist-search" type="search" size="32" placeholder="Enter any artist name" autocomplete="off" required>
-      <button id="artist-search-button" type="submit">Search</button>
+  <section id="search">
+    <h2>Search Spotify</h2>
+    <p>Find a track, album, or artist. Select a result to open its TOTALCHART page.</p>
+    <form id="search-form" class="controls">
+      <label for="search-query">Search:</label>
+      <input id="search-query" type="search" size="34" placeholder="Track, album, or artist name" autocomplete="off" required>
+      <label for="search-type">Look for:</label>
+      <select id="search-type">
+        <option value="all">Everything</option>
+        <option value="track">Tracks</option>
+        <option value="album">Albums</option>
+        <option value="artist">Artists</option>
+      </select>
+      <button id="search-button" type="submit">Search</button>
     </form>
-    <p id="search-status" class="small status" aria-live="polite">Ready. Enter an artist name to search the live catalogue.</p>
-    <div id="artist-results"></div>
+    <p id="search-status" class="small status" aria-live="polite">Ready. Search the Spotify catalogue.</p>
+    <div id="search-results"></div>
   </section>
 
-  <section id="artist-page" class="panel" hidden>
-    <h2 id="artist-name"></h2>
-    <p id="artist-description" class="small"></p>
-    <p id="recording-status" class="small status" aria-live="polite"></p>
-    <table id="recording-table" hidden>
-      <thead><tr><th>Recording</th><th>First release</th><th>Duration</th><th>ISRC</th><th>Statistics</th></tr></thead>
-      <tbody id="recording-rows"></tbody>
-    </table>
-    <p><button type="button" id="load-more" hidden>Load more recordings</button></p>
-    <p class="small">Recording metadata comes from MusicBrainz. Statistics are shown only when a separate performance-data provider supplies a sourced figure. No catalogue metadata is treated as popularity data.</p>
-  </section>
-
-  <hr>
-  <section id="spotify-playcounts">
-    <h2>Spotify lifetime playcount — experimental</h2>
-    <p>Look up one Spotify track by URL or track ID. TOTALCHART asks its Worker to query Spotify's Web Player Pathfinder using an anonymous token flow. No Spotify account login is requested. This is an undocumented interface and may stop working.</p>
-    <form id="spotify-playcount-form" class="controls">
-      <label for="spotify-track-input">Spotify track:</label>
-      <input id="spotify-track-input" type="text" size="42" placeholder="Paste a Spotify track URL or ID" autocomplete="off" required>
-      <button id="spotify-playcount-button" type="submit">Look up plays</button>
-    </form>
-    <p id="spotify-playcount-status" class="small status" aria-live="polite">No track looked up.</p>
-    <table id="spotify-playcount-table" hidden>
-      <thead><tr><th>Track</th><th>Artist(s)</th><th>Album</th><th>Spotify playcount</th><th>Captured at (UTC)</th></tr></thead>
-      <tbody id="spotify-playcount-row"></tbody>
-    </table>
-    <p class="small">Important: Spotify's Pathfinder playcount is an undocumented value. A returned value of <strong>0</strong> may represent fewer than 1,000 plays, not an exact zero. TOTALCHART preserves that distinction. These lookups are experimental and are not yet automatically matched to MusicBrainz recordings.</p>
-  </section>
-
-  <hr>
-  <section id="charts">
-    <h2>Spotify Global Weekly Chart — experimental</h2>
-    <p>This optional connector reads the public Spotify Charts web feed. It is undocumented and may change. Chart-period streams, when present, are not lifetime totals.</p>
-    <p class="controls">
-      <button type="button" id="spotify-chart-load">Fetch Global Weekly Chart</button>
-      <button type="button" id="spotify-chart-export" disabled>Export chart snapshot JSON</button>
-    </p>
-    <p id="spotify-chart-status" class="small status" aria-live="polite">No chart loaded.</p>
-    <table id="spotify-chart-table" hidden>
-      <thead><tr><th>Rank</th><th>Track</th><th>Artists</th><th>Chart-period streams</th></tr></thead>
-      <tbody id="spotify-chart-rows"></tbody>
-    </table>
+  <section id="entity-page" class="panel" hidden>
+    <h2 id="entity-title" class="entity-heading"></h2>
+    <p id="entity-subtitle" class="small entity-meta"></p>
+    <div id="entity-content"></div>
   </section>
 
   <hr>
   <section id="methodology">
-    <h2>Methodology & data rules</h2>
-    <p>TOTALCHART keeps observed counts, estimates and weighted chart units separate. A raw stream count, a CD single purchase and a paid download are different kinds of activity; a simple sum is not automatically a fair popularity score.</p>
+    <h2>Methodology &amp; data rules</h2>
+    <p><strong>Spotify plays are not sales.</strong> TOTALCHART keeps lifetime Spotify playcounts, physical sales, and paid digital purchases as separate measurements. The raw numbers are never added together just because they are numbers.</p>
     <ol>
-      <li>Keep streaming, physical sales and digital purchases visible as separate components.</li>
-      <li>Show a combined total only when the underlying figures cover compatible products, territories and time periods and the calculation is explicitly defined.</li>
-      <li>Mark missing information as “Unavailable” or “Not researched”, never as zero.</li>
-      <li>Record the source, territory, date range, and whether each figure is reported or estimated.</li>
-      <li>Do not count an album purchase as a separate purchase of every individual track unless the source's methodology explicitly allocates it that way.</li>
+      <li><strong>Streaming:</strong> TOTALCHART reads the playcount exposed by Spotify's Web Player Pathfinder. It is an undocumented source, is marked unofficial, and is captured with a timestamp.</li>
+      <li><strong>Physical sales:</strong> reported units must identify the product, source, territory, reporting period, and whether the number is reported or estimated.</li>
+      <li><strong>Digital purchases:</strong> paid downloads must be kept separate from streams and from album purchases. An album purchase is not automatically counted as a purchase of every track on it.</li>
+      <li><strong>Combined ranking:</strong> a cross-format score will only be calculated when comparable, sourced data exists for the selected entries and a transparent normalization method has been defined. Missing data is not zero.</li>
+      <li><strong>Coverage:</strong> country, period, product type, and source methodology must be visible. A worldwide lifetime count cannot be fairly compared with a one-week country-specific number without explaining the difference.</li>
     </ol>
-    <p>Reference material: <a href="https://support.luminatedata.com/portal/en/kb/articles/methodology">Luminate methodology</a> and <a href="https://gmr.ifpi.org/downloads/GMR2026_Methodology.pdf">IFPI 2026 methodology</a>.</p>
+    <p>At present, physical and digital sales providers are not connected, so those fields and the combined score are shown as unavailable or not calculated. This is deliberate: a made-up total is not a chart.</p>
+    <p class="small">Spotify lifetime playcounts are not an official sales or certification figure. A returned Spotify value of 0 may represent fewer than 1,000 plays; it is not proof of an exact zero.</p>
   </section>
 
   <hr>
   <section id="about">
     <h2>About TOTALCHART</h2>
-    <p>TOTALCHART is an independent project exploring how music popularity can be represented across eras and formats. Artist and recording results are fetched when searched; no artist or song catalogue is hardcoded into the homepage.</p>
-    <p>Catalogue source: <a href="https://musicbrainz.org/">MusicBrainz</a>. Performance figures require separate sources and are not inferred from catalogue entries.</p>
+    <p>TOTALCHART is an independent project for exploring music performance across eras and formats. Search results and metadata are fetched when requested; there is no preloaded artist or song catalogue.</p>
+    <p>Spotify catalogue content is linked back to its corresponding Spotify track, album, or artist page. Spotify's artist overview supplies the current Top 10 list shown here; that list is not presented as an official chart.</p>
+    <p>Project repository: <a href="https://github.com/Melodii7785/totalchart">github.com/Melodii7785/totalchart</a>.</p>
   </section>
 </main>
-<footer><p class="small">TOTALCHART — made of HTML, stubbornness, and at least three dollars. Over there.</p></footer>
+
+<footer>
+  <p class="small">TOTALCHART — built with HTML, stubbornness, and at least three dollars. Over there.</p>
+</footer>
 
 <script type="module">
-  import { searchArtists, browseRecordings } from "./js/musicbrainz.js";
-  import { fetchGlobalWeeklyChart, toSpotifyChartRecords } from "./js/spotify-charts.js";
-  import { fetchSpotifyPlaycount, parseSpotifyTrackId, findSpotifyTrackId } from "./js/spotify-playcounts.js";
+  import { searchSpotify, lookupSpotifyEntity } from "./js/spotify-catalog.js";
 
-  const searchForm = document.getElementById("artist-search-form");
-  const searchInput = document.getElementById("artist-search");
-  const searchButton = document.getElementById("artist-search-button");
+  const searchForm = document.getElementById("search-form");
+  const searchQuery = document.getElementById("search-query");
+  const searchType = document.getElementById("search-type");
+  const searchButton = document.getElementById("search-button");
   const searchStatus = document.getElementById("search-status");
-  const artistResults = document.getElementById("artist-results");
-  const artistPage = document.getElementById("artist-page");
-  const artistName = document.getElementById("artist-name");
-  const artistDescription = document.getElementById("artist-description");
-  const recordingStatus = document.getElementById("recording-status");
-  const recordingTable = document.getElementById("recording-table");
-  const recordingRows = document.getElementById("recording-rows");
-  const loadMoreButton = document.getElementById("load-more");
+  const searchResults = document.getElementById("search-results");
+  const entityPage = document.getElementById("entity-page");
+  const entityTitle = document.getElementById("entity-title");
+  const entitySubtitle = document.getElementById("entity-subtitle");
+  const entityContent = document.getElementById("entity-content");
 
-  let selectedArtist = null;
-  let recordings = [];
-  let recordingCount = 0;
-  let nextOffset = 0;
-  let requestGeneration = 0;
+  let searchGeneration = 0;
+  let entityGeneration = 0;
 
-  function cell(row, value) {
-    const td = document.createElement("td");
-    td.textContent = value || "—";
+  function make(tag, text) {
+    const element = document.createElement(tag);
+    if (text !== undefined && text !== null) element.textContent = String(text);
+    return element;
+  }
+
+  function appendCell(row, value) {
+    const td = make("td", value === null || value === undefined || value === "" ? "Unavailable" : value);
     row.appendChild(td);
     return td;
   }
 
-  function formatDuration(milliseconds) {
-    if (!Number.isInteger(milliseconds) || milliseconds < 0) return "—";
-    const seconds = Math.floor(milliseconds / 1000);
-    return Math.floor(seconds / 60) + ":" + String(seconds % 60).padStart(2, "0");
+  function spotifyLink(url, label) {
+    const link = make("a", label);
+    link.href = url;
+    link.target = "_blank";
+    link.rel = "noopener noreferrer";
+    return link;
   }
 
-  function clearArtistPage() {
-    selectedArtist = null;
-    recordings = [];
-    recordingCount = 0;
-    nextOffset = 0;
-    artistPage.hidden = true;
-    recordingRows.replaceChildren();
-    recordingTable.hidden = true;
-    loadMoreButton.hidden = true;
+  function idText(id) {
+    return id ? make("code", id) : make("span", "Unavailable");
   }
 
-  function renderArtistResults(artists) {
-    artistResults.replaceChildren();
-    if (!artists.length) {
-      const p = document.createElement("p");
-      p.className = "muted";
-      p.textContent = "No matching artists found. Try another spelling.";
-      artistResults.appendChild(p);
-      return;
-    }
+  function formatNumber(value) {
+    return Number.isSafeInteger(value) && value >= 0 ? value.toLocaleString("en-US") : "Unavailable";
+  }
 
-    const table = document.createElement("table");
-    const head = document.createElement("thead");
-    const headerRow = document.createElement("tr");
-    ["Artist", "Area", "Type", "Disambiguation", "Action"].forEach(label => {
-      const th = document.createElement("th");
-      th.textContent = label;
-      headerRow.appendChild(th);
-    });
-    head.appendChild(headerRow);
+  function metricTable(rows) {
+    const table = make("table");
+    const head = make("thead");
+    const header = make("tr");
+    ["Measurement", "Value", "Source / status"].forEach(value => header.appendChild(make("th", value)));
+    head.appendChild(header);
     table.appendChild(head);
-
-    const body = document.createElement("tbody");
-    artists.forEach(artist => {
-      const row = document.createElement("tr");
-      cell(row, artist.name);
-      cell(row, artist.area?.name || artist.country || "—");
-      cell(row, artist.type || "—");
-      cell(row, artist.disambiguation || "—");
-      const action = document.createElement("td");
-      const button = document.createElement("button");
-      button.type = "button";
-      button.textContent = "Open artist";
-      button.addEventListener("click", () => selectArtist(artist));
-      action.appendChild(button);
-      row.appendChild(action);
+    const body = make("tbody");
+    rows.forEach(item => {
+      const row = make("tr");
+      appendCell(row, item.label);
+      appendCell(row, item.value);
+      appendCell(row, item.source);
       body.appendChild(row);
     });
     table.appendChild(body);
-    artistResults.appendChild(table);
+    return table;
   }
 
-  function renderRecordings() {
-    recordingRows.replaceChildren();
-    recordings.forEach(recording => {
-      const row = document.createElement("tr");
-      const titleCell = document.createElement("td");
-      const link = document.createElement("a");
-      link.href = "https://musicbrainz.org/recording/" + encodeURIComponent(recording.id);
-      link.target = "_blank";
-      link.rel = "noopener";
-      link.textContent = recording.title || "Untitled recording";
-      titleCell.appendChild(link);
-      row.appendChild(titleCell);
-      cell(row, recording["first-release-date"] || "—");
-      cell(row, formatDuration(recording.length));
-      cell(row, Array.isArray(recording.isrcs) ? recording.isrcs.join(", ") : "—");
-      const statisticsCell = document.createElement("td");
-      const spotifyTrackId = findSpotifyTrackId(recording);
-      if (spotifyTrackId) {
-        const lookupButton = document.createElement("button");
-        lookupButton.type = "button";
-        lookupButton.textContent = "Fetch Spotify playcount";
-        lookupButton.addEventListener("click", async () => {
-          lookupButton.disabled = true;
-          lookupButton.textContent = "Fetching…";
-          try {
-            const result = await fetchSpotifyPlaycount(spotifyTrackId);
-            statisticsCell.replaceChildren();
-            if (result.playcount === null || result.data_status !== "reported") {
-              statisticsCell.textContent = "Unavailable";
-              if (result.reason) statisticsCell.title = result.reason;
-            } else {
-              statisticsCell.append(document.createTextNode(Number(result.playcount).toLocaleString("en-US")));
-              if (result.playcount === 0) {
-                const note = document.createElement("span");
-                note.textContent = " *";
-                note.title = "Spotify may use 0 for fewer than 1,000 plays; this is not proof of an exact zero.";
-                statisticsCell.appendChild(note);
-              }
-              statisticsCell.title = "Spotify Web Player Pathfinder · captured " + (result.observed_at || "time unavailable");
-            }
-          } catch (error) {
-            statisticsCell.textContent = "Lookup failed: " + error.message;
-          } finally {
-            lookupButton.disabled = false;
-            lookupButton.textContent = "Retry Spotify playcount";
-          }
-        });
-        statisticsCell.appendChild(lookupButton);
-      } else {
-        statisticsCell.textContent = "No linked Spotify track";
-        statisticsCell.title = "MusicBrainz has no unique, explicit Spotify track URL relationship for this recording.";
-      }
-      row.appendChild(statisticsCell);
-      recordingRows.appendChild(row);
-    });
-    recordingTable.hidden = recordings.length === 0;
-    loadMoreButton.hidden = nextOffset >= recordingCount || recordingCount === 0;
-  }
-
-  async function loadRecordings(generation) {
-    if (!selectedArtist) return;
-    loadMoreButton.disabled = true;
-    recordingStatus.textContent = "Fetching recordings from MusicBrainz…";
-    try {
-      const result = await browseRecordings(selectedArtist.id, 100, nextOffset);
-      if (generation !== requestGeneration) return;
-      const page = Array.isArray(result.recordings) ? result.recordings : [];
-      const seen = new Set(recordings.map(item => item.id));
-      page.forEach(item => { if (!seen.has(item.id)) recordings.push(item); });
-      recordingCount = Number(result["recording-count"] || recordingCount || 0);
-      nextOffset += page.length;
-      renderRecordings();
-      recordingStatus.textContent = recordings.length + " of " + recordingCount + " recording entries fetched. Statistics are not included in MusicBrainz catalogue data.";
-      if (!page.length && recordings.length === 0) recordingStatus.textContent = "No recording entries were returned for this artist.";
-    } catch (error) {
-      if (generation === requestGeneration) recordingStatus.textContent = error.message;
-    } finally {
-      loadMoreButton.disabled = false;
+  function showSearchResults(results) {
+    searchResults.replaceChildren();
+    if (!results.length) {
+      searchResults.appendChild(make("p", "No results found. Try another search."));
+      return;
     }
+
+    const groups = [
+      ["track", "Tracks"],
+      ["album", "Albums"],
+      ["artist", "Artists"]
+    ];
+
+    groups.forEach(([kind, heading]) => {
+      const items = results.filter(item => item.type === kind);
+      if (!items.length) return;
+      searchResults.appendChild(make("h3", heading));
+
+      const table = make("table");
+      const head = make("thead");
+      const header = make("tr");
+      ["Name", "Artist / release", "Spotify ID", "Action"].forEach(value => header.appendChild(make("th", value)));
+      head.appendChild(header);
+      table.appendChild(head);
+
+      const body = make("tbody");
+      items.forEach(item => {
+        const row = make("tr");
+        const nameCell = make("td");
+        nameCell.appendChild(spotifyLink(item.spotify_url, item.name));
+        row.appendChild(nameCell);
+
+        const detail = item.type === "artist"
+          ? "Artist"
+          : (item.artists || []).map(artist => artist.name).join(", ") +
+            (item.type === "track" && item.album_name ? " · " + item.album_name : "") +
+            (item.type === "album" && item.release_date ? " · " + item.release_date : "");
+        appendCell(row, detail || "—");
+        const idCell = make("td");
+        idCell.className = "id";
+        idCell.appendChild(idText(item.id));
+        row.appendChild(idCell);
+
+        const actionCell = make("td");
+        const button = make("button", "Open");
+        button.type = "button";
+        button.addEventListener("click", () => openEntity(item.type, item.id));
+        actionCell.appendChild(button);
+        row.appendChild(actionCell);
+        body.appendChild(row);
+      });
+      table.appendChild(body);
+      searchResults.appendChild(table);
+    });
   }
 
-  async function selectArtist(artist) {
-    requestGeneration += 1;
-    const generation = requestGeneration;
-    selectedArtist = artist;
-    recordings = [];
-    recordingCount = 0;
-    nextOffset = 0;
-    artistPage.hidden = false;
-    artistName.textContent = artist.name;
-    const lifespan = artist["life-span"] || {};
-    artistDescription.textContent = [
-      artist.type || "Artist type not listed",
-      artist.area?.name || artist.country || "Area not listed",
-      artist.disambiguation || "",
-      [lifespan.begin, lifespan.end].filter(Boolean).join(" – ")
-    ].filter(Boolean).join(" · ");
-    const artistLink = document.createElement("a");
-    artistLink.href = "https://musicbrainz.org/artist/" + encodeURIComponent(artist.id);
-    artistLink.target = "_blank";
-    artistLink.rel = "noopener";
-    artistLink.textContent = "MusicBrainz artist record";
-    artistDescription.append(" · ", artistLink);
-    recordingRows.replaceChildren();
-    recordingTable.hidden = true;
-    recordingStatus.textContent = "Artist selected. Fetching its recordings…";
-    await loadRecordings(generation);
-    artistPage.scrollIntoView({behavior:"smooth", block:"start"});
+  function renderTrack(track) {
+    entityTitle.textContent = track.track_name || "Track";
+    entitySubtitle.replaceChildren(
+      spotifyLink(track.spotify_url, "Open track in Spotify"),
+      document.createTextNode(" · Track ID: "),
+      idText(track.track_id)
+    );
+
+    const artists = track.artists || [];
+    const artistLine = make("p");
+    artistLine.appendChild(make("strong", "Artist(s): "));
+    if (artists.length) {
+      artists.forEach((artist, index) => {
+        if (index) artistLine.appendChild(document.createTextNode(", "));
+        if (artist.spotify_url) artistLine.appendChild(spotifyLink(artist.spotify_url, artist.name));
+        else artistLine.appendChild(document.createTextNode(artist.name));
+        if (artist.id) {
+          artistLine.appendChild(document.createTextNode(" ("));
+          artistLine.appendChild(idText(artist.id));
+          artistLine.appendChild(document.createTextNode(")"));
+        }
+      });
+    } else {
+      artistLine.appendChild(document.createTextNode("Unavailable"));
+    }
+    entityContent.appendChild(artistLine);
+
+    const albumLine = make("p");
+    albumLine.appendChild(make("strong", "Album: "));
+    if (track.album_id && track.album_url) albumLine.appendChild(spotifyLink(track.album_url, track.album_name || "Open album"));
+    else albumLine.appendChild(document.createTextNode(track.album_name || "Unavailable"));
+    albumLine.appendChild(document.createTextNode(" · Album ID: "));
+    albumLine.appendChild(idText(track.album_id));
+    entityContent.appendChild(albumLine);
+
+    entityContent.appendChild(metricTable([
+      { label: "Spotify lifetime plays", value: formatNumber(track.playcount), source: track.source || "Unavailable" },
+      { label: "Physical single sales", value: "Unavailable", source: "No connected, verified source" },
+      { label: "Paid digital downloads", value: "Unavailable", source: "No connected, verified source" },
+      { label: "Cross-format score", value: "Not calculated", source: "Comparable sales data is not available yet" }
+    ]));
+
+    if (track.playcount === 0) {
+      entityContent.appendChild(make("p", "Note: Spotify may use 0 for fewer than 1,000 plays. This is not proof of an exact zero."));
+    }
+    if (track.observed_at) entityContent.appendChild(make("p", "Playcount captured: " + track.observed_at + " (UTC)"));
+  }
+
+  function renderAlbum(album) {
+    entityTitle.textContent = album.name || "Album";
+    entitySubtitle.replaceChildren(
+      spotifyLink(album.spotify_url, "Open album in Spotify"),
+      document.createTextNode(" · Album ID: "),
+      idText(album.album_id)
+    );
+
+    const artistLine = make("p");
+    artistLine.appendChild(make("strong", "Artist(s): "));
+    (album.artists || []).forEach((artist, index) => {
+      if (index) artistLine.appendChild(document.createTextNode(", "));
+      if (artist.spotify_url) artistLine.appendChild(spotifyLink(artist.spotify_url, artist.name));
+      else artistLine.appendChild(document.createTextNode(artist.name));
+      if (artist.id) {
+        artistLine.appendChild(document.createTextNode(" ("));
+        artistLine.appendChild(idText(artist.id));
+        artistLine.appendChild(document.createTextNode(")"));
+      }
+    });
+    entityContent.appendChild(artistLine);
+
+    entityContent.appendChild(metricTable([
+      { label: "Release date", value: album.release_date || "Unavailable", source: "Spotify catalogue" },
+      { label: "Album type", value: album.album_type || "Unavailable", source: "Spotify catalogue" },
+      { label: "Track count", value: album.total_tracks === null ? "Unavailable" : album.total_tracks, source: "Spotify catalogue" },
+      { label: "Physical album sales", value: "Unavailable", source: "No connected, verified source" },
+      { label: "Paid digital album purchases", value: "Unavailable", source: "No connected, verified source" },
+      { label: "Cross-format score", value: "Not calculated", source: "Comparable sales data is not available yet" }
+    ]));
+  }
+
+  function renderArtist(artist) {
+    entityTitle.textContent = artist.name || "Artist";
+    entitySubtitle.replaceChildren(
+      spotifyLink(artist.spotify_url, "Open artist in Spotify"),
+      document.createTextNode(" · Artist ID: "),
+      idText(artist.artist_id)
+    );
+
+    const listeners = make("p");
+    listeners.textContent = "Monthly listeners: " + formatNumber(artist.monthly_listeners) +
+      " · Followers: " + formatNumber(artist.followers);
+    entityContent.appendChild(listeners);
+
+    entityContent.appendChild(make("h3", "Spotify Artist Top 10"));
+    entityContent.appendChild(make("p", artist.top_tracks_note || "Tracks listed in Spotify's artist overview. This is not an official chart."));
+    const table = make("table");
+    const head = make("thead");
+    const header = make("tr");
+    ["Rank", "Track", "Track ID", "Spotify lifetime plays", "Physical sales", "Digital downloads", "Cross-format score"].forEach(value => header.appendChild(make("th", value)));
+    head.appendChild(header);
+    table.appendChild(head);
+
+    const body = make("tbody");
+    (artist.top_tracks || []).forEach(track => {
+      const row = make("tr");
+      appendCell(row, track.rank);
+      const titleCell = make("td");
+      titleCell.appendChild(spotifyLink(track.spotify_url, track.name || track.track_name || "Unknown track"));
+      row.appendChild(titleCell);
+      const idCell = make("td");
+      idCell.className = "id";
+      idCell.appendChild(idText(track.id || track.track_id));
+      row.appendChild(idCell);
+      const playsCell = appendCell(row, formatNumber(track.playcount));
+      if (track.playcount === 0) {
+        playsCell.title = "Spotify may use 0 for fewer than 1,000 plays; this is not proof of an exact zero.";
+      }
+      appendCell(row, "Unavailable");
+      appendCell(row, "Unavailable");
+      appendCell(row, "Not calculated");
+      body.appendChild(row);
+    });
+    table.appendChild(body);
+    entityContent.appendChild(table);
+
+    if (!artist.top_tracks || !artist.top_tracks.length) {
+      entityContent.appendChild(make("p", "Spotify did not return a Top 10 list for this artist."));
+    }
+    entityContent.appendChild(make("p", "Spotify top-track data is supplied by the Web Player artist overview. Playcounts are fetched individually from Pathfinder."));
+  }
+
+  async function openEntity(type, id) {
+    const generation = ++entityGeneration;
+    entityPage.hidden = false;
+    entityTitle.textContent = "Loading…";
+    entitySubtitle.textContent = "";
+    entityContent.replaceChildren();
+    entityContent.appendChild(make("p", "Fetching Spotify " + type + " information…"));
+    entityPage.scrollIntoView({ behavior: "smooth", block: "start" });
+
+    try {
+      const entity = await lookupSpotifyEntity(type, id);
+      if (generation !== entityGeneration) return;
+      entityContent.replaceChildren();
+      if (entity.entity_type === "track") renderTrack(entity);
+      else if (entity.entity_type === "album") renderAlbum(entity);
+      else if (entity.entity_type === "artist") renderArtist(entity);
+      else throw new Error("Spotify returned an unsupported entity type.");
+    } catch (error) {
+      if (generation !== entityGeneration) return;
+      entityTitle.textContent = "Could not open this item";
+      entitySubtitle.textContent = "";
+      entityContent.replaceChildren(make("p", error.message));
+    }
   }
 
   searchForm.addEventListener("submit", async event => {
     event.preventDefault();
-    const query = searchInput.value.trim();
-    if (query.length < 2) {
-      searchStatus.textContent = "Enter at least two characters.";
-      return;
-    }
-    requestGeneration += 1;
-    clearArtistPage();
-    artistResults.replaceChildren();
+    const generation = ++searchGeneration;
+    const query = searchQuery.value.trim();
     searchButton.disabled = true;
-    searchStatus.textContent = "Searching the live MusicBrainz catalogue…";
+    searchStatus.textContent = "Searching Spotify…";
+    searchResults.replaceChildren();
+    entityPage.hidden = true;
+
     try {
-      const result = await searchArtists(query, 15);
-      renderArtistResults(Array.isArray(result.artists) ? result.artists : []);
-      searchStatus.textContent = (result.artists || []).length + " matching artist record(s) fetched.";
+      const result = await searchSpotify(query, searchType.value);
+      if (generation !== searchGeneration) return;
+      showSearchResults(result.results || []);
+      searchStatus.textContent = (result.results || []).length + " result(s) found for “" + query + "”.";
     } catch (error) {
+      if (generation !== searchGeneration) return;
       searchStatus.textContent = error.message;
     } finally {
-      searchButton.disabled = false;
+      if (generation === searchGeneration) searchButton.disabled = false;
     }
   });
-
-  loadMoreButton.addEventListener("click", () => {
-    if (selectedArtist) loadRecordings(requestGeneration);
-  });
-
-  // Experimental single-track Pathfinder lookup; separate from catalogue discovery.
-  const playcountForm = document.getElementById("spotify-playcount-form");
-  const playcountInput = document.getElementById("spotify-track-input");
-  const playcountButton = document.getElementById("spotify-playcount-button");
-  const playcountStatus = document.getElementById("spotify-playcount-status");
-  const playcountTable = document.getElementById("spotify-playcount-table");
-  const playcountRow = document.getElementById("spotify-playcount-row");
-
-  playcountForm.addEventListener("submit", async event => {
-    event.preventDefault();
-    const trackId = parseSpotifyTrackId(playcountInput.value);
-    if (!trackId) {
-      playcountStatus.textContent = "That does not look like a valid Spotify track URL or 22-character track ID.";
-      playcountTable.hidden = true;
-      return;
-    }
-
-    playcountButton.disabled = true;
-    playcountStatus.textContent = "Asking Spotify Pathfinder for this track's playcount…";
-    playcountTable.hidden = true;
-    playcountRow.replaceChildren();
-
-    try {
-      const result = await fetchSpotifyPlaycount(trackId);
-      const row = document.createElement("tr");
-      cell(row, result.track_name || "Track name unavailable");
-      cell(row, Array.isArray(result.artist_names) ? result.artist_names.join(", ") : "Unavailable");
-      cell(row, result.album_name || "Unavailable");
-      const countCell = cell(row, result.playcount === null ? "Unavailable" : Number(result.playcount).toLocaleString("en-US"));
-      if (result.playcount === 0) {
-        countCell.append(" *");
-      }
-      cell(row, result.observed_at ? new Date(result.observed_at).toISOString().replace("T", " ").replace("Z", "") : "Unavailable");
-      playcountRow.appendChild(row);
-      playcountTable.hidden = false;
-
-      if (result.data_status === "reported") {
-        playcountStatus.textContent = "A playcount value was returned for Spotify track " + trackId + ". Source: " + (result.source || "Spotify Web Player Pathfinder") + ".";
-      } else {
-        playcountStatus.textContent = result.reason || "Spotify did not provide a playcount for this track.";
-      }
-    } catch (error) {
-      playcountStatus.textContent = error.message;
-    } finally {
-      playcountButton.disabled = false;
-    }
-  });
-
-  // Optional chart connector. Kept separate from artist discovery and artist catalogue results.
-  const spotifyLoadButton = document.getElementById("spotify-chart-load");
-  const spotifyExportButton = document.getElementById("spotify-chart-export");
-  const spotifyStatus = document.getElementById("spotify-chart-status");
-  const spotifyTable = document.getElementById("spotify-chart-table");
-  const spotifyRows = document.getElementById("spotify-chart-rows");
-  let spotifyChartRecords = null;
-
-  spotifyLoadButton.addEventListener("click", async () => {
-    spotifyLoadButton.disabled = true;
-    spotifyExportButton.disabled = true;
-    spotifyStatus.textContent = "Fetching Spotify's public chart feed…";
-    spotifyRows.replaceChildren();
-    spotifyTable.hidden = true;
-    try {
-      const chart = await fetchGlobalWeeklyChart();
-      spotifyChartRecords = toSpotifyChartRecords(chart);
-      chart.entries.forEach(entry => {
-        const row = document.createElement("tr");
-        cell(row, entry.rank === null ? "—" : String(entry.rank));
-        cell(row, entry.title);
-        cell(row, entry.artists.map(artist => artist.name).join(", "));
-        cell(row, entry.streams === null ? "Not supplied" : Number(entry.streams).toLocaleString("en-US"));
-        spotifyRows.appendChild(row);
-      });
-      spotifyTable.hidden = chart.entries.length === 0;
-      const withStreams = chart.entries.filter(entry => entry.streams !== null).length;
-      spotifyStatus.textContent = chart.title + (chart.date ? " · " + chart.date : "") + " · " + chart.entries.length + " entries · " + withStreams + " include chart-period streams.";
-      spotifyExportButton.disabled = spotifyChartRecords.observations.length === 0;
-    } catch (error) {
-      spotifyChartRecords = null;
-      spotifyStatus.textContent = error.message;
-    } finally {
-      spotifyLoadButton.disabled = false;
-    }
-  });
-
-  spotifyExportButton.addEventListener("click", () => {
-    if (!spotifyChartRecords) return;
-    const dataset = {
-      schema_version: "1.0.0",
-      updated_at: new Date().toISOString(),
-      artists: spotifyChartRecords.artists,
-      recordings: spotifyChartRecords.recordings,
-      observations: spotifyChartRecords.observations
-    };
-    const blob = new Blob([JSON.stringify(dataset, null, 2)], {type:"application/json"});
-    const url = URL.createObjectURL(blob);
-    const anchor = document.createElement("a");
-    anchor.href = url;
-    anchor.download = "totalchart-spotify-chart-" + new Date().toISOString().slice(0,10) + ".json";
-    document.body.appendChild(anchor);
-    anchor.click();
-    anchor.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
-    spotifyStatus.textContent = "Chart snapshot exported. These are chart-period observations, not lifetime totals.";
-  });
-
 </script>
 </body>
 </html>
