@@ -16,7 +16,7 @@ export function parseSpotifyTrackId(input) {
 
   try {
     const url = new URL(value);
-    if (!/(^|\\.)spotify\\.com$/i.test(url.hostname)) return null;
+    if (!/(^|\.)spotify\.com$/i.test(url.hostname)) return null;
     const parts = url.pathname.split("/").filter(Boolean);
     const trackIndex = parts.indexOf("track");
     const id = trackIndex >= 0 ? parts[trackIndex + 1] : null;
