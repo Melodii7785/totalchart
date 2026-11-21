@@ -7,7 +7,6 @@ const ALLOWED_ORIGINS = new Set([
 
 const SPOTIFY_PATHFINDER_URL = "https://api-partner.spotify.com/pathfinder/v2/query";
 const SPOTIFY_GET_TRACK_HASH = "612585ae06ba435ad26369870deaae23b5c8800a256cd8a57e08eddc25a37294";
-const SPOTIFY_GET_ALBUM_HASH = "b9bfabef66ed756e5e13f68a942deb60bd4125ec1f1be8cc42769dc0259b4b10";
 const SPOTIFY_GET_ARTIST_HASH = "ae0e2958a4ab645b35ca19ac04d0495ae12d9c5d7b7286217674801a9aab281a";
 const SPOTIFY_TOTP_SECRETS_URL = "https://raw.githubusercontent.com/xyloflake/spot-secrets-go/refs/heads/main/secrets/secretDict.json";
 const SPOTIFY_USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36";
@@ -26,7 +25,6 @@ var spotifySecretCacheAt = 0;
 var spotifyAppVersionCache = null;
 var spotifyAppVersionCacheAt = 0;
 var spotifyClientTokenCache = null;
-var spotifyPlaycountCache = new Map();
 var spotifySearchCache = new Map();
 var spotifyEntityCache = new Map();
 
@@ -444,29 +442,6 @@ async function fetchSpotifyTrackPlaycount(trackId) {
   return result;
 }
 
-async function spotifyPlaycountResponse(trackId) {
-  var memoryEntry = spotifyPlaycountCache.get(trackId);
-  if (memoryEntry && memoryEntry.expiresAt > Date.now()) {
-    return json(memoryEntry.data, 200, { "Cache-Control": "public, max-age=300, s-maxage=3600" });
-  }
-
-  try {
-    var result = await fetchSpotifyTrackPlaycount(trackId);
-    spotifyPlaycountCache.set(trackId, { data: result, expiresAt: Date.now() + 3600000 });
-    if (spotifyPlaycountCache.size > 500) {
-      var oldestKey = spotifyPlaycountCache.keys().next().value;
-      spotifyPlaycountCache.delete(oldestKey);
-    }
-    return json(result, 200, { "Cache-Control": "public, max-age=300, s-maxage=3600" });
-  } catch (error) {
-    return json({
-      error: "Spotify Pathfinder playcount lookup failed.",
-      detail: error.message
-    }, 502);
-  }
-}
-
-
 async function spotifyWebApiRequest(path) {
   var auth = await getSpotifyAuthContext();
   var response = await fetch("https://api.spotify.com/v1" + path, {
@@ -804,13 +779,6 @@ async function handleRequest(request) {
     }
   }
 
-  if (url.pathname === "/api/spotify/playcount") {
-    var spotifyTrackId = (url.searchParams.get("id") || "").trim();
-    if (!SPOTIFY_TRACK_ID_RE.test(spotifyTrackId)) {
-      return addCors(json({ error: "A valid 22-character Spotify track ID is required." }, 400), origin);
-    }
-    return addCors(await spotifyPlaycountResponse(spotifyTrackId), origin);
-  }
 
   return addCors(json({ error: "Unknown endpoint." }, 404), origin);
 }
