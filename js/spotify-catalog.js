@@ -9,6 +9,35 @@ const API_BASE = "https://totalchart-musicbrainz-proxy.melodii7785.workers.dev";
 const MUSICAPI_CLIENT_ID = "8ce42097-f6e8-4794-8596-82c6a3b7a585";
 const MUSICAPI_BASE = "https://api.musicapi.com";
 
+
+async function requestJson(path) {
+  let response;
+  try {
+    response = await fetch(API_BASE + path, {
+      headers: { "Accept": "application/json" }
+    });
+  } catch {
+    throw new Error("Could not reach the TotalChart lookup service. Check your connection and try again.");
+  }
+
+  let data;
+  try {
+    data = await response.json();
+  } catch {
+    throw new Error("The TotalChart lookup service returned an unreadable response (HTTP " + response.status + ").");
+  }
+
+  if (!response.ok) {
+    const detail = data && (data.detail || data.message);
+    const message = detail
+      ? (data.error ? data.error + ": " : "") + detail
+      : (data && data.error) || ("Lookup request failed (HTTP " + response.status + ").");
+    throw new Error(message);
+  }
+
+  return data;
+}
+
 function musicApiItem(type, item) {
   if (!item || !item.data || item.status !== "success") return null;
   const data = item.data;
