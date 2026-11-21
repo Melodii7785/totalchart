@@ -2,95 +2,75 @@
 
 **I'm Going Crazy! another music utility from my stupid brain. bravo!**
 
-Welcome to TOTALCHART, the music database that asks the important question:
-
-**What if we stopped pretending that music history began when Spotify showed up?**
-
-This is an independent little project trying to bring streaming, physical sales and digital purchases into one place, so an artist's commercial history doesn't get flattened into a list of whatever has the biggest stream count this morning.
+TOTALCHART is a cross-format music database. The goal is to compare music performance across streaming, physical sales, and paid digital purchases without pretending those are all the same unit.
 
 There will be numbers. There will be sources. There will be arguments about methodology. There may be Britney Spears.
 
 ## WHAT THE HELL IS THIS
 
-TOTALCHART is an early prototype for a cross-format music database.
+Search for a track, album, or artist in Spotify's catalogue.
 
-The long-term idea is to document:
+- **Track:** open its Spotify ID, linked album and artist IDs, and lifetime playcount.
+- **Album:** open its Spotify album ID, release metadata, artists, and track count.
+- **Artist:** open its artist ID and the Top 10 tracks currently listed in Spotify's Web Player artist overview, with an individual playcount lookup for each track.
 
-- Streaming figures.
-- Physical single and album sales.
-- Digital song and album purchases.
-- Where each figure came from.
-- Which country or territory it covers.
-- When it was reported, and whether it's an estimate.
-
-The goal is to make the data useful without making up numbers to fill empty boxes. We are serious about the data. We are not serious about having a boring README.
+Nothing is preloaded. Search results are fetched when requested.
 
 ## HOW TO RUN THIS THING
 
 1. Download or clone the repository.
-2. Serve the folder over HTTP (for example, run `python -m http.server 5500` in the repository folder).
-3. Open `http://localhost:5500`.
+2. Serve the folder over HTTP (for example, run python -m http.server 5500).
+3. Open http://localhost:5500.
 4. Or visit the hosted GitHub Pages site.
 
-The page now uses JavaScript modules and the catalogue proxy, so opening `index.html` directly as a `file://` URL is not a reliable way to run it.
+The page uses JavaScript modules and a Cloudflare Worker. Opening index.html directly as a file URL is not a reliable way to run it.
 
 No React. No Tailwind. No package manager. No seventeen-step ritual. Just HTML, CSS, and vanilla JavaScript.
-
-## WHAT WORKS SO FAR
-
-- A deliberately old-web-looking homepage.
-- A search-first homepage with no preloaded artists or songs.
-- Live MusicBrainz artist search and recording discovery.
-- Artist and recording results fetched on demand and displayed in the browser.
-- An experimental Spotify Global weekly chart connector.
-- Dated chart observations, kept separate from lifetime stream totals.
-- Missing physical and digital sales are marked unavailable.
-- A methodology section explaining why raw streams and sales units aren't automatically interchangeable.
-
-It's a prototype. Some bits are held together with enthusiasm and questionable life choices. Please be patient.
 
 ## THE DATA RULES. YES, THERE ARE RULES.
 
 **We do not invent statistics.**
 
-The homepage does not ship with preloaded artist or song statistics. Artist and recording metadata is fetched when someone searches. Performance statistics are a separate layer and are only displayed when a provider supplies a sourced figure.
+Spotify lifetime playcounts are one metric. Physical copies and paid digital purchases are separate metrics. A raw stream count, a CD single purchase, and a paid download cannot simply be added together as though they were identical.
 
-Missing information is labelled as unavailable or not researched. It is NOT zero. An empty box is an empty box. It is not an invitation to make up 4.7 million copies.
-
-Every statistic should eventually have:
+Every performance observation should include:
 - A source.
 - A territory.
 - A reporting period or capture date.
-- A clear indication of whether it is reported or estimated.
+- A clear indication of whether the figure is reported or estimated.
+- A definition of what product or activity was counted.
 
-And please, for the love of all things pop music, do not add raw streams, CD singles and paid downloads together as if they are identical units. Any combined score needs a documented methodology. We are building a database, not a calculator with delusions of grandeur.
+Missing information is unavailable. It is NOT zero. A combined cross-format score stays uncalculated until comparable sourced data exists and the normalization method is explicit.
 
-## LIVE DATA DISCOVERY
+An album purchase is not a separate purchase of every individual track unless the source methodology explicitly allocates it that way.
 
-MusicBrainz powers artist and recording discovery. The browser talks to a small Cloudflare Worker proxy so the MusicBrainz requests can include TOTALCHART's application User-Agent and obey the one-request-per-second limit.
+## LIVE DATA PROVIDERS
 
-The experimental Spotify Charts connector reads a public web endpoint used by Spotify Charts. It is undocumented and may break. Stream counts are imported only when the response contains them, and they are stored as chart-period values rather than lifetime totals. Spotify filters chart streams for eligibility.
+### Spotify catalogue search
 
-Provider details and caveats live in [docs/data-providers.md](docs/data-providers.md). The canonical format is in [data/schema.json](data/schema.json).
+The search interface uses Spotify's catalogue search endpoint to find tracks, albums, and artists. Search results include Spotify IDs and links to the corresponding Spotify pages.
 
-The search interface displays live catalogue results; it does not pretend that those results are stored as verified commercial statistics. The canonical data format is available for reviewed imports into `data/observations.json`.
+### Spotify Web Player Pathfinder
 
-## RESEARCH STARTING POINTS
+The Worker uses the undocumented Web Player Pathfinder getTrack operation to read data.trackUnion.playcount. The artist page uses the Web Player artist-overview operation to retrieve the tracks currently listed in the artist's Top 10 section.
 
-- [Luminate methodology](https://support.luminatedata.com/portal/en/kb/articles/methodology)
-- [IFPI Global Music Report 2026 methodology](https://gmr.ifpi.org/downloads/GMR2026_Methodology.pdf)
+The artist Top 10 is **not an official chart**. Spotify removed the public Web API GET /artists/{id}/top-tracks endpoint in February 2026, so the project does not rely on that removed endpoint.
 
-These are references for understanding industry measurement. They do not magically provide every artist's sales figures. If only.
+The Pathfinder interface and anonymous token flow are undocumented and can change without notice. Playcounts are timestamped and identified as an unofficial source. A value of 0 may represent fewer than 1,000 plays; it is not proof of an exact zero.
+
+### Physical and digital sales
+
+No physical-sales or paid-download provider is connected yet. Those fields are shown as unavailable, not guessed. The combined score is not calculated while those inputs are missing.
+
+Provider details and caveats live in docs/data-providers.md. The canonical data format is in data/schema.json.
 
 ## THE ROAD AHEAD
 
-The next jobs include:
-- Individual song pages.
-- Individual artist pages with actual release data.
-- A proper data structure for figures and sources.
-- Performance-data providers for artists and recordings selected through search.
-- A transparent chart calculation method.
-- A lot of research. A frankly unreasonable amount of research.
+- Connect verifiable physical-sales and paid-download sources.
+- Record territory and time coverage for every observation.
+- Define a transparent, comparable cross-format ranking method.
+- Add reviewed exports for sourced observations.
+- Keep testing the Spotify lookup as its undocumented endpoints evolve.
 
 ## STATUS
 
@@ -102,11 +82,3 @@ There's 3 dollars. Over There.
 
 ---
 *TOTALCHART — built with HTML, questionable levels of enthusiasm, and the determination to make music statistics less annoying.*
-
-## EXPERIMENTAL SPOTIFY PLAY COUNTS
-
-The manual single-track lookup now calls the TOTALCHART Worker at `/api/spotify/playcount?id=<track-id>`. The Worker attempts Spotify's anonymous Web Player token flow and queries the undocumented Pathfinder `getTrack` operation. The browser does not need Spotify login credentials, cookies, or personal access tokens.
-
-This is experimental and **not live end-to-end verified yet**. Spotify may change the anonymous token flow, persisted-query hash, headers, or response format. A missing playcount remains unavailable, not zero. Spotify may use a returned value of `0` for tracks below 1,000 plays, so the UI flags that value rather than treating it as an exact zero.
-
-The manual lookup accepts one Spotify track URL or ID. Where MusicBrainz has exactly one explicit Spotify track URL attached to an individual recording, that recording also gets its own playcount lookup button. TOTALCHART does not guess Spotify IDs from titles, artist names, ISRCs alone, or album links. See [docs/data-providers.md](docs/data-providers.md) for the endpoint and caveats.
