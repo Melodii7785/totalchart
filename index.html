@@ -116,7 +116,7 @@
   <section id="about">
     <h2>About TotalChart</h2>
     <p>TotalChart is an independent little project for looking at music across different eras and formats. Search results and catalogue information are fetched when you ask for them. We don't have a giant list of songs sitting here already!</p>
-    <p>Spotify catalogue results link back to their Spotify track, album, or artist pages. The artist overview's Top 10 list is included for reference, but it is not an official chart. Just so we're clear!</p>
+    <p>Search results come from Apple's iTunes music catalogue; Spotify links are used for the statistics pages. The artist overview's Top 10 list is included for reference, but it is not an official chart. Just so we're clear!</p>
     <p>Project repository: <a href="https://github.com/Melodii7785/totalchart">github.com/Melodii7785/totalchart</a>.</p>
   </section>
 </main>
@@ -134,7 +134,12 @@
   const searchButton = document.getElementById("search-button");
   const searchStatus = document.getElementById("search-status");
   const searchResults = document.getElementById("search-results");
-  const appleSearchResults = document.getElementById("apple-search-results");
+  const spotifyLookupPanel = document.getElementById("spotify-lookup-panel");
+  const spotifyLookupTitle = document.getElementById("spotify-lookup-title");
+  const spotifyLookupForm = document.getElementById("spotify-lookup-form");
+  const spotifyLookupInput = document.getElementById("spotify-lookup-input");
+  const spotifyLookupStatus = document.getElementById("spotify-lookup-status");
+  const spotifyLookupCancel = document.getElementById("spotify-lookup-cancel");
   const entityPage = document.getElementById("entity-page");
   const entityTitle = document.getElementById("entity-title");
   const entitySubtitle = document.getElementById("entity-subtitle");
@@ -143,6 +148,7 @@
   let searchGeneration = 0;
   let searchInFlight = false;
   let entityGeneration = 0;
+  let selectedCatalogueItem = null;
 
   function make(tag, text) {
     const element = document.createElement(tag);
@@ -156,7 +162,7 @@
     return td;
   }
 
-  function spotifyLink(url, label) {
+  function externalLink(url, label) {
     const link = make("a", label);
     link.href = url;
     link.target = "_blank";
@@ -194,7 +200,7 @@
   function showSearchResults(results) {
     searchResults.replaceChildren();
     if (!results.length) {
-      searchResults.appendChild(make("p", "No results found. Try another search."));
+      searchResults.appendChild(make("p", "No results found in Apple's catalogue. Try another search."));
       return;
     }
 
@@ -212,32 +218,37 @@
       const table = make("table");
       const head = make("thead");
       const header = make("tr");
-      ["Name", "Artist / release", "Spotify ID", "Action"].forEach(value => header.appendChild(make("th", value)));
+      ["Name", "Artist / details", "iTunes ID", "Apple link", "TotalChart"].forEach(value => header.appendChild(make("th", value)));
       head.appendChild(header);
       table.appendChild(head);
 
       const body = make("tbody");
       items.forEach(item => {
         const row = make("tr");
-        const nameCell = make("td");
-        nameCell.appendChild(spotifyLink(item.spotify_url, item.name));
-        row.appendChild(nameCell);
+        appendCell(row, item.name);
 
         const detail = item.type === "artist"
-          ? "Artist"
-          : (item.artists || []).map(artist => artist.name).join(", ") +
-            (item.type === "track" && item.album_name ? " · " + item.album_name : "") +
-            (item.type === "album" && item.release_date ? " · " + item.release_date : "");
+          ? (item.genre || "Artist")
+          : [
+              (item.artists || []).map(artist => artist.name).join(", "),
+              item.type === "track" ? item.album_name : item.release_date
+            ].filter(Boolean).join(" · ");
         appendCell(row, detail || "—");
+
         const idCell = make("td");
         idCell.className = "id";
         idCell.appendChild(idText(item.id));
         row.appendChild(idCell);
 
+        const appleCell = make("td");
+        if (item.apple_url) appleCell.appendChild(externalLink(item.apple_url, "Open in Apple Music"));
+        else appleCell.textContent = "Unavailable";
+        row.appendChild(appleCell);
+
         const actionCell = make("td");
-        const button = make("button", "Open");
+        const button = make("button", "Select");
         button.type = "button";
-        button.addEventListener("click", () => openEntity(item.type, item.id));
+        button.addEventListener("click", () => prepareSpotifyLookup(item));
         actionCell.appendChild(button);
         row.appendChild(actionCell);
         body.appendChild(row);
@@ -247,38 +258,37 @@
     });
   }
 
-  function showAppleSearchResults(results) {
-    appleSearchResults.replaceChildren();
-    if (!results.length) return;
+  function prepareSpotifyLookup(item) {
+    selectedCatalogueItem = item;
+    spotifyLookupTitle.textContent = "Selected " + item.type + ": " + item.name;
+    spotifyLookupInput.value = "";
+    spotifyLookupStatus.textContent = "";
+    spotifyLookupPanel.hidden = false;
+    spotifyLookupPanel.scrollIntoView({ behavior: "smooth", block: "start" });
+    spotifyLookupInput.focus();
+  }
 
-    appleSearchResults.appendChild(make("h3", "Apple Music discoveries"));
-    appleSearchResults.appendChild(make("p", "These are the Apple Music catalogue matches used for cross-service discovery. Spotify matches appear above."));
-    const table = make("table");
-    const head = make("thead");
-    const header = make("tr");
-    ["Name", "Artist / release", "Apple Music link"].forEach(value => header.appendChild(make("th", value)));
-    head.appendChild(header);
-    table.appendChild(head);
+  function parseSpotifyId(value, expectedType) {
+    const input = String(value || "").trim();
+    const urlMatch = input.match(/open\.spotify\.com\/(track|album|artist)\/([A-Za-z0-9]{22})/i);
+    const uriMatch = input.match(/^spotify:(track|album|artist):([A-Za-z0-9]{22})$/i);
+    const match = urlMatch || uriMatch;
 
-    const body = make("tbody");
-    results.forEach(item => {
-      const row = make("tr");
-      appendCell(row, item.name);
-      appendCell(row, (item.artists || []).map(artist => artist.name).join(", ") || item.album_name || "—");
-      const cell = make("td");
-      if (item.url) cell.appendChild(spotifyLink(item.url, "Open on Apple Music"));
-      else cell.textContent = "Unavailable";
-      row.appendChild(cell);
-      body.appendChild(row);
-    });
-    table.appendChild(body);
-    appleSearchResults.appendChild(table);
+    if (match) {
+      if (match[1].toLowerCase() !== expectedType) {
+        throw new Error("That Spotify link is for a " + match[1] + ", but you selected a " + expectedType + ".");
+      }
+      return match[2];
+    }
+
+    if (/^[A-Za-z0-9]{22}$/.test(input)) return input;
+    throw new Error("Paste a Spotify link or a valid 22-character Spotify ID.");
   }
 
   function renderTrack(track) {
     entityTitle.textContent = track.track_name || "Track";
     entitySubtitle.replaceChildren(
-      spotifyLink(track.spotify_url, "Open track in Spotify"),
+      externalLink(track.spotify_url, "Open track in Spotify"),
       document.createTextNode(" · Track ID: "),
       idText(track.track_id)
     );
@@ -289,7 +299,7 @@
     if (artists.length) {
       artists.forEach((artist, index) => {
         if (index) artistLine.appendChild(document.createTextNode(", "));
-        if (artist.spotify_url) artistLine.appendChild(spotifyLink(artist.spotify_url, artist.name));
+        if (artist.spotify_url) artistLine.appendChild(externalLink(artist.spotify_url, artist.name));
         else artistLine.appendChild(document.createTextNode(artist.name));
         if (artist.id) {
           artistLine.appendChild(document.createTextNode(" ("));
@@ -304,7 +314,7 @@
 
     const albumLine = make("p");
     albumLine.appendChild(make("strong", "Album: "));
-    if (track.album_id && track.album_url) albumLine.appendChild(spotifyLink(track.album_url, track.album_name || "Open album"));
+    if (track.album_id && track.album_url) albumLine.appendChild(externalLink(track.album_url, track.album_name || "Open album"));
     else albumLine.appendChild(document.createTextNode(track.album_name || "Unavailable"));
     albumLine.appendChild(document.createTextNode(" · Album ID: "));
     albumLine.appendChild(idText(track.album_id));
@@ -326,7 +336,7 @@
   function renderAlbum(album) {
     entityTitle.textContent = album.name || "Album";
     entitySubtitle.replaceChildren(
-      spotifyLink(album.spotify_url, "Open album in Spotify"),
+      externalLink(album.spotify_url, "Open album in Spotify"),
       document.createTextNode(" · Album ID: "),
       idText(album.album_id)
     );
@@ -335,7 +345,7 @@
     artistLine.appendChild(make("strong", "Artist(s): "));
     (album.artists || []).forEach((artist, index) => {
       if (index) artistLine.appendChild(document.createTextNode(", "));
-      if (artist.spotify_url) artistLine.appendChild(spotifyLink(artist.spotify_url, artist.name));
+      if (artist.spotify_url) artistLine.appendChild(externalLink(artist.spotify_url, artist.name));
       else artistLine.appendChild(document.createTextNode(artist.name));
       if (artist.id) {
         artistLine.appendChild(document.createTextNode(" ("));
@@ -358,7 +368,7 @@
   function renderArtist(artist) {
     entityTitle.textContent = artist.name || "Artist";
     entitySubtitle.replaceChildren(
-      spotifyLink(artist.spotify_url, "Open artist in Spotify"),
+      externalLink(artist.spotify_url, "Open artist in Spotify"),
       document.createTextNode(" · Artist ID: "),
       idText(artist.artist_id)
     );
@@ -382,7 +392,7 @@
       const row = make("tr");
       appendCell(row, track.rank);
       const titleCell = make("td");
-      titleCell.appendChild(spotifyLink(track.spotify_url, track.name || track.track_name || "Unknown track"));
+      titleCell.appendChild(externalLink(track.spotify_url, track.name || track.track_name || "Unknown track"));
       row.appendChild(titleCell);
       const idCell = make("td");
       idCell.className = "id";
@@ -431,6 +441,26 @@
     }
   }
 
+  spotifyLookupForm.addEventListener("submit", async event => {
+    event.preventDefault();
+    if (!selectedCatalogueItem) return;
+
+    spotifyLookupStatus.textContent = "";
+    try {
+      const spotifyId = parseSpotifyId(spotifyLookupInput.value, selectedCatalogueItem.type);
+      await openEntity(selectedCatalogueItem.type, spotifyId);
+    } catch (error) {
+      spotifyLookupStatus.textContent = error.message || "That Spotify ID could not be used.";
+    }
+  });
+
+  spotifyLookupCancel.addEventListener("click", () => {
+    spotifyLookupPanel.hidden = true;
+    selectedCatalogueItem = null;
+    spotifyLookupInput.value = "";
+    spotifyLookupStatus.textContent = "";
+  });
+
     searchForm.addEventListener("submit", async event => {
     event.preventDefault();
 
@@ -450,19 +480,19 @@
     searchQuery.disabled = true;
     searchType.disabled = true;
     searchButton.textContent = "Searching...";
-    searchStatus.textContent = "Asking Apple Music and Spotify. Please wait...";
+    searchStatus.textContent = "Searching Apple's iTunes music catalogue...";
     searchResults.replaceChildren();
-    appleSearchResults.replaceChildren();
+    spotifyLookupPanel.hidden = true;
+    selectedCatalogueItem = null;
     entityPage.hidden = true;
 
     try {
-      const result = await searchSpotify(query, searchType.value);
+      const result = await searchITunes(query, searchType.value);
 
       if (generation !== searchGeneration) return;
 
       const results = result.results || [];
       showSearchResults(results);
-      showAppleSearchResults(result.apple_results || []);
 
       searchStatus.textContent = results.length
         ? `${results.length} result(s) found for "${query}".`
@@ -472,7 +502,6 @@
       if (generation !== searchGeneration) return;
 
       searchResults.replaceChildren();
-      appleSearchResults.replaceChildren();
       searchStatus.textContent = error.message || "Something went wrong. Please try again.";
 
     } finally {
