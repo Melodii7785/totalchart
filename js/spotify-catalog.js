@@ -1,14 +1,97 @@
-
 /**
- * MusicAPI catalogue search and Spotify entity lookups for TOTALCHART.
- * Public catalogue searches use the public Client ID. Entity statistics
- * continue through the existing TOTALCHART Worker.
+ * Apple iTunes catalogue search and Spotify entity lookups for TOTALCHART.
+ * Discovery uses Apple's public iTunes Search API. Spotify is used only
+ * for the existing chart/statistics lookup after a catalogue selection.
  */
 
+const ITUNES_SEARCH_URL = "https://itunes.apple.com/search";
 const API_BASE = "https://totalchart-musicbrainz-proxy.melodii7785.workers.dev";
-const MUSICAPI_CLIENT_ID = "8ce42097-f6e8-4794-8596-82c6a3b7a585";
-const MUSICAPI_BASE = "https://api.musicapi.com";
 
+function mapITunesResult(type, item) {
+  if (!item || typeof item !== "object") return null;
+  const id = type === "track" ? item.trackId : type === "album" ? item.collectionId : item.artistId;
+  if (id === undefined || id === null) return null;
+  const name = type === "track" ? item.trackName : type === "album" ? item.collectionName : item.artistName;
+  if (!name) return null;
+  const artistName = item.artistName || "";
+  const appleUrl = type === "track" ? item.trackViewUrl : type === "album" ? item.collectionViewUrl : item.artistViewUrl;
+
+  return {
+    type,
+    id: String(id),
+    name: String(name),
+    artists: artistName && type !== "artist" ? [{ name: String(artistName) }] : [],
+    artist_name: artistName || null,
+    album_name: item.collectionName || null,
+    release_date: item.releaseDate || null,
+    genre: item.primaryGenreName || null,
+    track_count: Number.isInteger(item.trackCount) ? item.trackCount : null,
+    image_url: item.artworkUrl100 || item.artworkUrl60 || null,
+    apple_url: appleUrl || null,
+    source: "Apple iTunes Search API"
+  };
+}
+
+async function searchITunesType(query, type) {
+  const config = {
+    track: { entity: "song", attribute: "songTerm" },
+    album: { entity: "album", attribute: "albumTerm" },
+    artist: { entity: "musicArtist", attribute: "artistTerm" }
+  }[type];
+
+  const params = new URLSearchParams({
+    term: query,
+    country: "br",
+    media: "music",
+    entity: config.entity,
+    attribute: config.attribute,
+    limit: "50"
+  });
+
+  let response;
+  try {
+    response = await fetch(ITUNES_SEARCH_URL + "?" + params.toString(), {
+      headers: { "Accept": "application/json" }
+    });
+  } catch {
+    throw new Error("Could not reach Apple's iTunes Search API. Check your connection and try again.");
+  }
+
+  let data;
+  try {
+    data = await response.json();
+  } catch {
+    throw new Error("Apple's catalogue returned an unreadable response (HTTP " + response.status + ").");
+  }
+
+  if (!response.ok) {
+    throw new Error((data && data.errorMessage) || ("Apple's catalogue search failed (HTTP " + response.status + ")."));
+  }
+
+  return (Array.isArray(data.results) ? data.results : [])
+    .map(item => mapITunesResult(type, item))
+    .filter(Boolean);
+}
+
+export async function searchITunes(query, type = "all") {
+  const q = String(query || "").trim();
+  if (q.length < 2) throw new Error("Enter at least two characters.");
+  if (q.length > 150) throw new Error("Search text is too long.");
+  if (!["all", "track", "album", "artist"].includes(type)) {
+    throw new Error("Choose tracks, albums, artists, or all results.");
+  }
+
+  const types = type === "all" ? ["track", "album", "artist"] : [type];
+  const batches = await Promise.all(types.map(kind => searchITunesType(q, kind)));
+
+  return {
+    query: q,
+    result_type: type,
+    results: batches.flat(),
+    source: "Apple iTunes Search API (Brazil storefront)",
+    observed_at: new Date().toISOString()
+  };
+}
 
 async function requestJson(path) {
   let response;
@@ -38,137 +121,13 @@ async function requestJson(path) {
   return data;
 }
 
-function musicApiItem(type, item) {
-  if (!item || !item.data || item.status !== "success") return null;
-  const data = item.data;
-  const id = data.externalId;
-  if (!id) return null;
-  const artists = Array.isArray(data.artistNames)
-    ? data.artistNames.map(name => ({ name: String(name) }))
-    : [];
-  return {
-    type,
-    id: String(id),
-    name: data.name || "Untitled",
-    artists,
-    image_url: data.imageUrl || null,
-    release_date: data.releaseDate || data.release_date || null,
-    album_name: data.albumName || null,
-    spotify_url: data.url || (type === "track" || type === "album" || type === "artist"
-      ? "https://open.spotify.com/" + type + "/" + encodeURIComponent(String(id))
-      : null),
-    total_tracks: Number.isInteger(data.totalTracks) ? data.totalTracks : null,
-    source: "Spotify via MusicAPI"
-  };
-}
-
-function musicApiAppleItem(type, item) {
-  if (!item || !item.data || item.status !== "success") return null;
-  const data = item.data;
-  return {
-    type,
-    id: data.externalId || null,
-    name: data.name || "Untitled",
-    artists: Array.isArray(data.artistNames) ? data.artistNames.map(name => ({ name: String(name) })) : [],
-    album_name: data.albumName || null,
-    image_url: data.imageUrl || null,
-    url: data.url || null,
-    source: "Apple Music via MusicAPI"
-  };
-}
-
-async function searchMusicAPI(query, type = "all") {
-  const q = String(query || "").trim();
-  if (q.length < 2) throw new Error("Enter at least two characters.");
-  if (q.length > 150) throw new Error("Search text is too long.");
-  if (!["all", "track", "album", "artist"].includes(type)) {
-    throw new Error("Choose tracks, albums, artists, or all results.");
-  }
-
-  const types = type === "all" ? ["track", "album", "artist"] : [type];
-
-  async function searchType(kind) {
-    const payload = {
-      type: kind,
-      sources: ["appleMusic", "spotify"]
-    };
-    payload[kind] = q;
-
-    let response;
-    try {
-      response = await fetch(MUSICAPI_BASE + "/public/search", {
-        method: "POST",
-        headers: {
-          "Accept": "application/json",
-          "Content-Type": "application/json",
-          "Authorization": "Token " + MUSICAPI_CLIENT_ID
-        },
-        body: JSON.stringify(payload)
-      });
-    } catch {
-      throw new Error("Could not reach MusicAPI. Check your connection and try again.");
-    }
-
-    let data;
-    try {
-      data = await response.json();
-    } catch {
-      throw new Error("MusicAPI returned an unreadable response.");
-    }
-    if (!response.ok) {
-      const detail = data.detail || data.error || data.message || "No further details were provided.";
-      throw new Error("MusicAPI catalogue search failed (HTTP " + response.status + "): " + detail);
-    }
-    return { kind, data };
-  }
-
-  const responses = await Promise.all(types.map(searchType));
-  const results = [];
-  const appleResults = [];
-
-  responses.forEach(({ kind, data }) => {
-    const plural = kind === "artist" ? "artists" : kind + "s";
-    const entries = Array.isArray(data[plural]) ? data[plural] : [];
-    entries.forEach(entry => {
-      if (entry.source === "spotify") {
-        const mapped = musicApiItem(kind, entry);
-        if (mapped) results.push(mapped);
-      } else if (entry.source === "appleMusic") {
-        const mapped = musicApiAppleItem(kind, entry);
-        if (mapped) appleResults.push(mapped);
-      }
-    });
-  });
-
-  return {
-    query: q,
-    result_type: type,
-    results,
-    apple_results: appleResults,
-    source: "MusicAPI catalogue (Apple Music discovery + Spotify matching)",
-    observed_at: new Date().toISOString()
-  };
-}
-
-export async function searchSpotify(query, type = "all") {
-  return searchMusicAPI(query, type);
-}
-
 export async function lookupSpotifyEntity(type, id) {
   if (!["track", "album", "artist"].includes(type)) {
     throw new Error("Choose a track, album, or artist.");
   }
-
   if (!/^[A-Za-z0-9]{22}$/.test(String(id || ""))) {
     throw new Error("That Spotify ID is not valid.");
   }
-
-  const params = new URLSearchParams({
-    type,
-    id
-  });
-
-  return requestJson(
-    "/api/spotify/lookup?" + params.toString()
-  );
+  const params = new URLSearchParams({ type, id });
+  return requestJson("/api/spotify/lookup?" + params.toString());
 }
