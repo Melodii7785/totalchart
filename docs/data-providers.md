@@ -70,11 +70,30 @@ Each reported playcount includes:
 
 A missing count remains unavailable, never zero. A returned 0 is preserved with an interpretation warning because Spotify may use that value for tracks below 1,000 plays. The playcount source is undocumented and may change or stop working.
 
-## 4. Physical sales, digital purchases, and combined score
+## 5. IFPI global chart references
 
-**Status:** not connected.
+**Status:** linked in the track, album, and artist views; IFPI chart entries and figures are not copied into TOTALCHART.
 
-TOTALCHART does not currently have a verified free provider for physical sales or paid digital downloads. It does not fill those fields with estimates or Spotify popularity scores.
+Official source: https://www.ifpi.org/our-industry/global-charts/
+
+The public annual charts provide worldwide reference points:
+
+- **Global Album Sales Chart:** physical album sales plus full-album downloads, counted as units. The public chart does not give a per-title split between those formats.
+- **Global Vinyl Album Chart:** vinyl album sales counted as units.
+- **Global Single Chart:** single-track downloads plus streaming across paid and ad-supported platforms. Its published chart metric is not a standalone paid-download count.
+- **Global Artist Chart:** catalogue-wide consumption across formats. Its underlying converted chart units are not published as artist lifetime sales.
+
+The app links to IFPI's own charts rather than reproducing their rankings or sales figures. IFPI's site terms restrict copying and redistribution of site content, and the Global Music Report usage rules require an External Use Licence for external use of its Data and Analysis content. See:
+- https://www.ifpi.org/terms-conditions/
+- https://globalmusicreport.ifpi.org/terms-of-use
+
+This means the IFPI integration is a source-reference integration, not a sales-data API. Users leave TotalChart to inspect IFPI's published annual rankings.
+
+## 6. Physical sales, digital purchases, and combined score
+
+**Status:** separate item-level sales data not connected.
+
+TOTALCHART does not currently have a verified, reusable provider for separate item-level physical sales or paid digital downloads. IFPI's annual rankings are useful worldwide references, but do not supply a public all-release lookup dataset that TOTALCHART can republish. The app does not fill those fields with estimates or Spotify popularity scores.
 
 A cross-format score is not calculated yet. Raw lifetime streams, paid downloads, physical singles, and album purchases have different units and cannot be summed directly. Any future combined ranking must state its territory, time window, source coverage, treatment of missing values, and normalization formula. Missing coverage must not silently lower a score or be treated as zero.
 
@@ -84,5 +103,6 @@ A cross-format score is not calculated yet. Raw lifetime streams, paid downloads
 - The existing Cloudflare Worker serves Spotify entity statistics.
 - A separate Cloudflare Worker, `totalchart-spotify-id-finder`, handles documented Spotify Web API ID matching with server-side credentials.
 - The browser uses Apple's iTunes Search API for catalogue discovery.
+- js/ifpi.js provides official IFPI chart links and original explanations of their coverage; it does not ingest or republish IFPI rankings or figures.
 - Both Workers keep credentials server-side; the ID Finder caches its app token and short-lived search responses in memory.
 - No database or paid analytics service is required by the current prototype.
