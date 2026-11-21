@@ -38,6 +38,20 @@ References:
 - https://support.spotify.com/ve-en/artists/article/understanding-spotify-charts/
 - https://stackoverflow.com/questions/78645242/how-to-automatically-download-csv-file-from-spotifys-global-chart
 
+## 3. Spotify Web Player Pathfinder — experimental lifetime playcounts
+
+**Status:** experimental Worker route and manual single-track lookup implemented; live end-to-end verification is still pending.
+
+The browser sends a Spotify track ID to the TOTALCHART Worker:
+
+`GET /api/spotify/playcount?id=<spotify-track-id>`
+
+The Worker attempts to obtain an anonymous Spotify Web Player access token using the publicly documented-by-community TOTP flow, then calls the undocumented Pathfinder `getTrack` operation and reads `data.trackUnion.playcount`. No personal Spotify account cookies, login credentials, or user access tokens are requested or stored.
+
+Returned observations identify the source as `Spotify Web Player Pathfinder`, the metric as `spotify_lifetime_playcount`, and include an observation timestamp. A missing field is stored as unavailable, never as zero. A returned value of `0` is preserved, but is displayed with a warning: community API documentation reports that Spotify may use this value for tracks below 1,000 plays, so it must not be interpreted as proof of an exact zero.
+
+This route is not yet matched automatically to MusicBrainz recordings. The site currently offers a manual lookup by Spotify track URL or ID. Spotify can change or restrict the token flow, query hash, headers, or response format at any time. The route is not a supported Spotify API and currently has no guaranteed availability. Do not use this data as an audited sales or certification figure.
+
 ## Import and export
 
 The browser never writes directly to the repository. Use the export buttons to download a JSON dataset containing the catalogue entities and observations. Review it before replacing or merging `data/observations.json` in GitHub.
