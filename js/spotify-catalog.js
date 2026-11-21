@@ -21,6 +21,25 @@ function parseRetryAfter(value) {
   return null;
 }
 
+function formatRetryAfter(seconds) {
+  if (seconds < 60) return seconds + " second" + (seconds === 1 ? "" : "s");
+
+  const minutes = Math.floor(seconds / 60);
+  const remainingSeconds = seconds % 60;
+
+  if (minutes < 60) {
+    return remainingSeconds
+      ? minutes + " minute" + (minutes === 1 ? "" : "s") + " and " + remainingSeconds + " second" + (remainingSeconds === 1 ? "" : "s")
+      : minutes + " minute" + (minutes === 1 ? "" : "s");
+  }
+
+  const hours = Math.floor(minutes / 60);
+  const remainingMinutes = minutes % 60;
+  return remainingMinutes
+    ? hours + " hour" + (hours === 1 ? "" : "s") + " and " + remainingMinutes + " minute" + (remainingMinutes === 1 ? "" : "s")
+    : hours + " hour" + (hours === 1 ? "" : "s");
+}
+
 async function requestJson(path) {
   let response;
 
@@ -63,8 +82,8 @@ async function requestJson(path) {
     if (rateLimited) {
       const error = new Error(
         retryAfter !== null
-          ? `Spotify is rate-limiting requests. Try again in about ${retryAfter} seconds.`
-          : "Spotify is rate-limiting requests right now. Please wait a little before trying again."
+          ? `Spotify is rate-limiting us. It says to retry after ${formatRetryAfter(retryAfter)}. Just wait.`
+          : "Spotify is rate-limiting us but did not provide a retry time. Just wait a little."
       );
 
       error.code = "RATE_LIMITED";
