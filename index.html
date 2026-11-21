@@ -63,7 +63,7 @@
 <main>
   <section id="search">
     <h2>Search the music database!</h2>
-    <p>Find a track, album, or artist in the Spotify catalogue. Select a result to visit its TotalChart page!</p>
+    <p>Search Apple's iTunes music catalogue for tracks, albums, and artists. Choose a result to continue to its TotalChart chart lookup.</p>
     <form id="search-form" class="controls">
       <label for="search-query">Search:</label>
       <input id="search-query" type="search" size="34" placeholder="Track, album, or artist name" autocomplete="off" required>
@@ -78,7 +78,17 @@
     </form>
     <p id="search-status" class="small status" aria-live="polite">Ready! Search the music database!</p>
     <div id="search-results"></div>
-    <div id="apple-search-results"></div>
+    <section id="spotify-lookup-panel" class="panel" hidden>
+      <h3 id="spotify-lookup-title">Selected catalogue item</h3>
+      <p class="small">Paste the matching Spotify link or 22-character Spotify ID to open its TotalChart statistics.</p>
+      <form id="spotify-lookup-form" class="controls">
+        <label for="spotify-lookup-input">Spotify link or ID:</label>
+        <input id="spotify-lookup-input" type="text" size="38" placeholder="https://open.spotify.com/track/..." autocomplete="off" required>
+        <button type="submit">Open TotalChart</button>
+        <button id="spotify-lookup-cancel" type="button">Cancel</button>
+      </form>
+      <p id="spotify-lookup-status" class="small status" aria-live="polite"></p>
+    </section>
   </section>
 
   <section id="entity-page" class="panel" hidden>
@@ -116,7 +126,7 @@
 </footer>
 
 <script type="module">
-  import { searchSpotify, lookupSpotifyEntity } from "./js/spotify-catalog.js?v=20261121-requestjson";
+  import { searchITunes, lookupSpotifyEntity } from "./js/spotify-catalog.js?v=20261121-itunes";
 
   const searchForm = document.getElementById("search-form");
   const searchQuery = document.getElementById("search-query");
