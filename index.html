@@ -60,6 +60,23 @@
   </section>
 
   <hr>
+  <section id="spotify-playcounts">
+    <h2>Spotify lifetime playcount — experimental</h2>
+    <p>Look up one Spotify track by URL or track ID. TOTALCHART asks its Worker to query Spotify's Web Player Pathfinder using an anonymous token flow. No Spotify account login is requested. This is an undocumented interface and may stop working.</p>
+    <form id="spotify-playcount-form" class="controls">
+      <label for="spotify-track-input">Spotify track:</label>
+      <input id="spotify-track-input" type="text" size="42" placeholder="Paste a Spotify track URL or ID" autocomplete="off" required>
+      <button id="spotify-playcount-button" type="submit">Look up plays</button>
+    </form>
+    <p id="spotify-playcount-status" class="small status" aria-live="polite">No track looked up.</p>
+    <table id="spotify-playcount-table" hidden>
+      <thead><tr><th>Track</th><th>Artist(s)</th><th>Album</th><th>Spotify playcount</th><th>Captured at (UTC)</th></tr></thead>
+      <tbody id="spotify-playcount-row"></tbody>
+    </table>
+    <p class="small">Important: Spotify's Pathfinder playcount is an undocumented value. A returned value of <strong>0</strong> may represent fewer than 1,000 plays, not an exact zero. TOTALCHART preserves that distinction. These lookups are experimental and are not yet automatically matched to MusicBrainz recordings.</p>
+  </section>
+
+  <hr>
   <section id="charts">
     <h2>Spotify Global Weekly Chart — experimental</h2>
     <p>This optional connector reads the public Spotify Charts web feed. It is undocumented and may change. Chart-period streams, when present, are not lifetime totals.</p>
@@ -100,6 +117,7 @@
 <script type="module">
   import { searchArtists, browseRecordings } from "./js/musicbrainz.js";
   import { fetchGlobalWeeklyChart, toSpotifyChartRecords } from "./js/spotify-charts.js";
+  import { fetchSpotifyPlaycount, parseSpotifyTrackId } from "./js/spotify-playcounts.js";
 
   const searchForm = document.getElementById("artist-search-form");
   const searchInput = document.getElementById("artist-search");
@@ -283,6 +301,54 @@
 
   loadMoreButton.addEventListener("click", () => {
     if (selectedArtist) loadRecordings(requestGeneration);
+  });
+
+  // Experimental single-track Pathfinder lookup; separate from catalogue discovery.
+  const playcountForm = document.getElementById("spotify-playcount-form");
+  const playcountInput = document.getElementById("spotify-track-input");
+  const playcountButton = document.getElementById("spotify-playcount-button");
+  const playcountStatus = document.getElementById("spotify-playcount-status");
+  const playcountTable = document.getElementById("spotify-playcount-table");
+  const playcountRow = document.getElementById("spotify-playcount-row");
+
+  playcountForm.addEventListener("submit", async event => {
+    event.preventDefault();
+    const trackId = parseSpotifyTrackId(playcountInput.value);
+    if (!trackId) {
+      playcountStatus.textContent = "That does not look like a valid Spotify track URL or 22-character track ID.";
+      playcountTable.hidden = true;
+      return;
+    }
+
+    playcountButton.disabled = true;
+    playcountStatus.textContent = "Asking Spotify Pathfinder for this track's playcount…";
+    playcountTable.hidden = true;
+    playcountRow.replaceChildren();
+
+    try {
+      const result = await fetchSpotifyPlaycount(trackId);
+      const row = document.createElement("tr");
+      cell(row, result.track_name || "Track name unavailable");
+      cell(row, Array.isArray(result.artist_names) ? result.artist_names.join(", ") : "Unavailable");
+      cell(row, result.album_name || "Unavailable");
+      const countCell = cell(row, result.playcount === null ? "Unavailable" : Number(result.playcount).toLocaleString("en-US"));
+      if (result.playcount === 0) {
+        countCell.append(" *");
+      }
+      cell(row, result.observed_at ? new Date(result.observed_at).toISOString().replace("T", " ").replace("Z", "") : "Unavailable");
+      playcountRow.appendChild(row);
+      playcountTable.hidden = false;
+
+      if (result.data_status === "reported") {
+        playcountStatus.textContent = "A playcount value was returned for Spotify track " + trackId + ". Source: " + (result.source || "Spotify Web Player Pathfinder") + ".";
+      } else {
+        playcountStatus.textContent = result.reason || "Spotify did not provide a playcount for this track.";
+      }
+    } catch (error) {
+      playcountStatus.textContent = error.message;
+    } finally {
+      playcountButton.disabled = false;
+    }
   });
 
   // Optional chart connector. Kept separate from artist discovery and artist catalogue results.
