@@ -78,16 +78,11 @@
     </form>
     <p id="search-status" class="small status" aria-live="polite">Ready! Search the music database!</p>
     <div id="search-results"></div>
-    <section id="spotify-lookup-panel" class="panel" hidden>
-      <h3 id="spotify-lookup-title">Selected catalogue item</h3>
-      <p class="small">Paste the matching Spotify link or 22-character Spotify ID to open its TotalChart statistics.</p>
-      <form id="spotify-lookup-form" class="controls">
-        <label for="spotify-lookup-input">Spotify link or ID:</label>
-        <input id="spotify-lookup-input" type="text" size="38" placeholder="https://open.spotify.com/track/..." autocomplete="off" required>
-        <button type="submit">Open TotalChart</button>
-        <button id="spotify-lookup-cancel" type="button">Cancel</button>
-      </form>
-      <p id="spotify-lookup-status" class="small status" aria-live="polite"></p>
+    <section id="spotify-match-panel" class="panel" hidden>
+      <h3 id="spotify-match-title">Spotify ID Finder</h3>
+      <p id="spotify-match-status" class="small status" aria-live="polite"></p>
+      <div id="spotify-match-results"></div>
+      <button id="spotify-match-cancel" type="button">Close</button>
     </section>
   </section>
 
@@ -126,7 +121,7 @@
 </footer>
 
 <script type="module">
-  import { searchITunes, lookupSpotifyEntity } from "./js/spotify-catalog.js?v=20261121-itunes";
+  import { searchITunes, findSpotifyMatches, lookupSpotifyEntity } from "./js/spotify-catalog.js?v=20261121-spotify-id-finder";
 
   const searchForm = document.getElementById("search-form");
   const searchQuery = document.getElementById("search-query");
@@ -134,12 +129,11 @@
   const searchButton = document.getElementById("search-button");
   const searchStatus = document.getElementById("search-status");
   const searchResults = document.getElementById("search-results");
-  const spotifyLookupPanel = document.getElementById("spotify-lookup-panel");
-  const spotifyLookupTitle = document.getElementById("spotify-lookup-title");
-  const spotifyLookupForm = document.getElementById("spotify-lookup-form");
-  const spotifyLookupInput = document.getElementById("spotify-lookup-input");
-  const spotifyLookupStatus = document.getElementById("spotify-lookup-status");
-  const spotifyLookupCancel = document.getElementById("spotify-lookup-cancel");
+  const spotifyMatchPanel = document.getElementById("spotify-match-panel");
+  const spotifyMatchTitle = document.getElementById("spotify-match-title");
+  const spotifyMatchStatus = document.getElementById("spotify-match-status");
+  const spotifyMatchResults = document.getElementById("spotify-match-results");
+  const spotifyMatchCancel = document.getElementById("spotify-match-cancel");
   const entityPage = document.getElementById("entity-page");
   const entityTitle = document.getElementById("entity-title");
   const entitySubtitle = document.getElementById("entity-subtitle");
@@ -148,7 +142,7 @@
   let searchGeneration = 0;
   let searchInFlight = false;
   let entityGeneration = 0;
-  let selectedCatalogueItem = null;
+  let matchGeneration = 0;
 
   function make(tag, text) {
     const element = document.createElement(tag);
@@ -246,7 +240,7 @@
         row.appendChild(appleCell);
 
         const actionCell = make("td");
-        const button = make("button", "Select");
+        const button = make("button", "Find Spotify ID");
         button.type = "button";
         button.addEventListener("click", () => prepareSpotifyLookup(item));
         actionCell.appendChild(button);
@@ -258,32 +252,97 @@
     });
   }
 
-  function prepareSpotifyLookup(item) {
-    selectedCatalogueItem = item;
-    spotifyLookupTitle.textContent = "Selected " + item.type + ": " + item.name;
-    spotifyLookupInput.value = "";
-    spotifyLookupStatus.textContent = "";
-    spotifyLookupPanel.hidden = false;
-    spotifyLookupPanel.scrollIntoView({ behavior: "smooth", block: "start" });
-    spotifyLookupInput.focus();
-  }
+  function showSpotifyMatches(matches, catalogueItem) {
+    spotifyMatchResults.replaceChildren();
 
-  function parseSpotifyId(value, expectedType) {
-    const input = String(value || "").trim();
-    const urlMatch = input.match(/open\.spotify\.com\/(track|album|artist)\/([A-Za-z0-9]{22})/i);
-    const uriMatch = input.match(/^spotify:(track|album|artist):([A-Za-z0-9]{22})$/i);
-    const match = urlMatch || uriMatch;
-
-    if (match) {
-      if (match[1].toLowerCase() !== expectedType) {
-        throw new Error("That Spotify link is for a " + match[1] + ", but you selected a " + expectedType + ".");
-      }
-      return match[2];
+    if (!matches.length) {
+      spotifyMatchResults.appendChild(make("p", "Spotify returned no candidates for this catalogue item."));
+      return;
     }
 
-    if (/^[A-Za-z0-9]{22}$/.test(input)) return input;
-    throw new Error("Paste a Spotify link or a valid 22-character Spotify ID.");
+    spotifyMatchResults.appendChild(make("p",
+      "Candidates are ranked using title/name, artist, album, and available release details. The score is TotalChart's estimate, not a Spotify-provided rating."
+    ));
+
+    const table = make("table");
+    const head = make("thead");
+    const header = make("tr");
+    ["Spotify result", "Artist / release", "Match", "Spotify ID", "Action"].forEach(value => header.appendChild(make("th", value)));
+    head.appendChild(header);
+    table.appendChild(head);
+
+    const body = make("tbody");
+    matches.forEach((candidate, index) => {
+      const row = make("tr");
+
+      const titleCell = make("td");
+      titleCell.appendChild(externalLink(candidate.spotify_url, candidate.name));
+      if (index === 0) {
+        titleCell.appendChild(document.createTextNode(" "));
+        titleCell.appendChild(make("strong", "Top candidate"));
+      }
+      row.appendChild(titleCell);
+
+      const details = [
+        (candidate.artists || []).map(artist => artist.name).join(", "),
+        candidate.album_name,
+        candidate.release_date
+      ].filter(Boolean).join(" · ");
+      appendCell(row, details || (candidate.type === "artist" ? "Artist" : "Details unavailable"));
+
+      appendCell(row, String(candidate.match_score) + "/100 · " + candidate.match_label);
+
+      const idCell = make("td");
+      idCell.className = "id";
+      idCell.appendChild(idText(candidate.id));
+      row.appendChild(idCell);
+
+      const actionCell = make("td");
+      const choose = make("button", "Use this ID");
+      choose.type = "button";
+      choose.addEventListener("click", () => {
+        spotifyMatchPanel.hidden = true;
+        openEntity(catalogueItem.type, candidate.id);
+      });
+      actionCell.appendChild(choose);
+      row.appendChild(actionCell);
+      body.appendChild(row);
+    });
+
+    table.appendChild(body);
+    spotifyMatchResults.appendChild(table);
   }
+
+  async function prepareSpotifyLookup(item) {
+    const generation = ++matchGeneration;
+    spotifyMatchTitle.textContent = "Finding Spotify ID for " + item.name;
+    spotifyMatchStatus.textContent = "Searching Spotify's official catalogue using the selected iTunes metadata...";
+    spotifyMatchResults.replaceChildren();
+    spotifyMatchPanel.hidden = false;
+    spotifyMatchPanel.scrollIntoView({ behavior: "smooth", block: "start" });
+
+    try {
+      const result = await findSpotifyMatches(item);
+      if (generation !== matchGeneration) return;
+
+      const matches = Array.isArray(result.matches) ? result.matches : [];
+      showSpotifyMatches(matches, item);
+      spotifyMatchStatus.textContent = matches.length
+        ? "Found " + matches.length + " Spotify candidate(s). Choose the matching release to open its TotalChart page."
+        : "No Spotify candidates found. Try another iTunes edition or check the artist/title.";
+    } catch (error) {
+      if (generation !== matchGeneration) return;
+      spotifyMatchResults.replaceChildren();
+      spotifyMatchStatus.textContent = error.message || "Spotify ID matching failed.";
+    }
+  }
+
+  spotifyMatchCancel.addEventListener("click", () => {
+    matchGeneration += 1;
+    spotifyMatchPanel.hidden = true;
+    spotifyMatchResults.replaceChildren();
+    spotifyMatchStatus.textContent = "";
+  });
 
   function renderTrack(track) {
     entityTitle.textContent = track.track_name || "Track";
@@ -418,6 +477,8 @@
 
   async function openEntity(type, id) {
     const generation = ++entityGeneration;
+    matchGeneration += 1;
+    spotifyMatchPanel.hidden = true;
     entityPage.hidden = false;
     entityTitle.textContent = "Loading…";
     entitySubtitle.textContent = "";
@@ -441,26 +502,6 @@
     }
   }
 
-  spotifyLookupForm.addEventListener("submit", async event => {
-    event.preventDefault();
-    if (!selectedCatalogueItem) return;
-
-    spotifyLookupStatus.textContent = "";
-    try {
-      const spotifyId = parseSpotifyId(spotifyLookupInput.value, selectedCatalogueItem.type);
-      await openEntity(selectedCatalogueItem.type, spotifyId);
-    } catch (error) {
-      spotifyLookupStatus.textContent = error.message || "That Spotify ID could not be used.";
-    }
-  });
-
-  spotifyLookupCancel.addEventListener("click", () => {
-    spotifyLookupPanel.hidden = true;
-    selectedCatalogueItem = null;
-    spotifyLookupInput.value = "";
-    spotifyLookupStatus.textContent = "";
-  });
-
     searchForm.addEventListener("submit", async event => {
     event.preventDefault();
 
@@ -482,8 +523,8 @@
     searchButton.textContent = "Searching...";
     searchStatus.textContent = "Searching Apple's iTunes music catalogue...";
     searchResults.replaceChildren();
-    spotifyLookupPanel.hidden = true;
-    selectedCatalogueItem = null;
+    matchGeneration += 1;
+    spotifyMatchPanel.hidden = true;
     entityPage.hidden = true;
 
     try {
