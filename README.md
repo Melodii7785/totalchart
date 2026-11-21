@@ -105,8 +105,8 @@ There's 3 dollars. Over There.
 
 ## EXPERIMENTAL SPOTIFY PLAY COUNTS
 
-An isolated adapter now exists at `js/spotify-playcounts.js`. It builds the documented `getTrack` Pathfinder request and parses `data.trackUnion.playcount` into a sourced lifetime-playcount observation shape.
+The manual single-track lookup now calls the TOTALCHART Worker at `/api/spotify/playcount?id=<track-id>`. The Worker attempts Spotify's anonymous Web Player token flow and queries the undocumented Pathfinder `getTrack` operation. The browser does not need Spotify login credentials, cookies, or personal access tokens.
 
-This is **not connected to the homepage yet** and has not passed a live end-to-end request. Spotify's Pathfinder interface is undocumented and requires web-player authentication headers. The adapter accepts credentials from an explicitly supplied integration; it does not collect, refresh, store, or log account cookies or tokens. Do not paste session credentials into the repository or commit them.
+This is experimental and **not live end-to-end verified yet**. Spotify may change the anonymous token flow, persisted-query hash, headers, or response format. A missing playcount remains unavailable, not zero. Spotify may use a returned value of `0` for tracks below 1,000 plays, so the UI flags that value rather than treating it as an exact zero.
 
-The adapter deliberately keeps a missing `playcount` as unavailable rather than converting it to zero. Before integration, the authentication and request path need a secure design, and the response needs a live test against multiple tracks.
+The manual lookup accepts one Spotify track URL or ID. Automatic matching between MusicBrainz recordings and Spotify track IDs is a separate task. See [docs/data-providers.md](docs/data-providers.md) for the endpoint and caveats.
