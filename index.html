@@ -11,21 +11,17 @@
     nav a { margin-right: 12px; }
     main { max-width: 1000px; }
     table { border-collapse: collapse; width: 100%; margin: 12px 0; }
-    th, td { border: 1px solid #999; padding: 6px 7px; text-align: left; }
+    th, td { border: 1px solid #999; padding: 6px 7px; text-align: left; vertical-align: top; }
     th { background: #eee; }
-    th button { font: inherit; font-weight: bold; border: 0; background: transparent; cursor: pointer; text-decoration: underline; }
-    input, select, button { font: inherit; }
-    button, select { cursor: pointer; }
+    input, button { font: inherit; }
+    button { cursor: pointer; }
+    button:disabled { cursor: wait; }
     .small { color: #555; font-size: .9em; }
-    .unavailable { color: #777; font-style: italic; }
+    .muted { color: #777; font-style: italic; }
     .controls { margin: 12px 0; display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
-    .artist-list { display: flex; gap: 18px; flex-wrap: wrap; padding-left: 20px; }
-    .artist-list li { margin-bottom: 5px; }
-    .detail { border: 1px solid #888; padding: 10px; margin: 14px 0; }
-    .detail h3 { margin-top: 0; }
-    .selected { background: #ffffcc; }
-    .count { font-weight: bold; }
-    footer { border-top: 1px solid #888; margin-top: 28px; padding-top: 8px; }
+    .panel { border: 1px solid #888; padding: 10px; margin: 14px 0; }
+    .panel h3 { margin-top: 0; }
+    .status { min-height: 1.2em; }
     @media (max-width: 650px) { table { font-size: .9em; } th, td { padding: 4px; } }
   </style>
 </head>
@@ -34,297 +30,291 @@
   <h1>TOTALCHART</h1>
   <p>The internet's music sales database.</p>
   <nav>
-    <a href="#home">Home</a><a href="#artists">Artists</a><a href="#charts">Database</a><a href="#methodology">Methodology</a><a href="#about">About</a>
+    <a href="#home">Home</a><a href="#search">Search</a><a href="#charts">Charts</a><a href="#methodology">Methodology</a><a href="#about">About</a>
   </nav>
 </header>
 
 <main>
-<section>
-  <h2>Welcome to TOTALCHART</h2>
-  <p>A music database bringing together streaming, physical sales and digital purchases. The goal: a fuller picture of a song's commercial history, not just what is popular on streaming today.</p>
-  <form id="search-form" class="controls">
-    <label for="search">Search the database:</label>
-    <input id="search" type="search" size="30" placeholder="Song or artist name" autocomplete="off">
-    <button type="submit">Search</button><button type="button" id="clear-search">Clear</button>
-  </form>
-  <p id="search-message" class="small" aria-live="polite">Search across the artist and song catalogue.</p>
-</section>
-
-<hr>
-<section id="artists">
-  <h2>Artist directory</h2>
-  <p class="small">Artists currently represented in the catalogue. Selecting an artist filters the database below.</p>
-  <ul id="artist-list" class="artist-list"></ul>
-</section>
-
-<hr>
-<section id="discovery">
-  <h2>MusicBrainz artist discovery</h2>
-  <p>Search the MusicBrainz catalogue, choose the correct artist, and browse their recording credits. This imports catalogue metadata only; it does not invent or retrieve streaming statistics.</p>
-  <form id="mb-search-form" class="controls">
-    <label for="mb-search">Artist name:</label>
-    <input id="mb-search" type="search" size="28" placeholder="Try Rihanna, Beyoncé, Britney Spears..." autocomplete="off" required>
-    <button type="submit">Search MusicBrainz</button>
-  </form>
-  <p id="mb-status" class="small" aria-live="polite">Ready. Search MusicBrainz to find an artist.</p>
-  <div id="mb-artist-results"></div>
-  <section id="mb-selected" hidden>
-    <h3 id="mb-selected-name"></h3>
-    <p id="mb-selected-info" class="small"></p>
-    <p>
-      <button type="button" id="mb-browse">Browse recordings</button>
-      <button type="button" id="mb-export" disabled>Export catalogue JSON</button>
-    </p>
-    <p id="mb-recording-status" class="small" aria-live="polite"></p>
-    <table id="mb-recording-table" hidden>
-      <thead><tr><th>Recording</th><th>First release</th><th>Duration</th><th>ISRC</th></tr></thead>
-      <tbody id="mb-recording-rows"></tbody>
-    </table>
-    <p><button type="button" id="mb-load-more" hidden>Load more recordings</button></p>
+  <section>
+    <h2>Search music</h2>
+    <p>Search for an artist. TOTALCHART fetches matching artist records from MusicBrainz; choose one to fetch its recordings. Nothing is preloaded.</p>
+    <form id="artist-search-form" class="controls">
+      <label for="artist-search">Artist:</label>
+      <input id="artist-search" type="search" size="32" placeholder="Enter any artist name" autocomplete="off" required>
+      <button id="artist-search-button" type="submit">Search</button>
+    </form>
+    <p id="search-status" class="small status" aria-live="polite">Ready. Enter an artist name to search the live catalogue.</p>
+    <div id="artist-results"></div>
   </section>
-  <p class="small">Catalogue source: <a href="https://musicbrainz.org/" target="_blank" rel="noopener">MusicBrainz</a>. MusicBrainz data is identification metadata, not sales or streaming evidence.</p>
-</section>
 
-<hr>
-<section id="spotify-charts">
-  <h2>Spotify Global Weekly Chart — experimental</h2>
-  <p>This connector reads Spotify's public Global weekly chart feed. It is an undocumented web endpoint, so it may change or stop working. Stream counts are recorded only when the response actually contains them.</p>
-  <p class="small">Important: Spotify filters chart streams for chart eligibility. These figures represent the chart period, not every play and not lifetime streams.</p>
-  <p><button type="button" id="spotify-chart-load">Fetch Global Weekly Chart</button>
-    <button type="button" id="spotify-chart-export" disabled>Export chart snapshot JSON</button></p>
-  <p id="spotify-chart-status" class="small" aria-live="polite">No chart loaded yet.</p>
-  <table id="spotify-chart-table" hidden>
-    <thead><tr><th>Rank</th><th>Track</th><th>Artists</th><th>Chart-period streams</th></tr></thead>
-    <tbody id="spotify-chart-rows"></tbody>
-  </table>
-</section>
+  <section id="artist-page" class="panel" hidden>
+    <h2 id="artist-name"></h2>
+    <p id="artist-description" class="small"></p>
+    <p id="recording-status" class="small status" aria-live="polite"></p>
+    <table id="recording-table" hidden>
+      <thead><tr><th>Recording</th><th>First release</th><th>Duration</th><th>ISRC</th><th>Statistics</th></tr></thead>
+      <tbody id="recording-rows"></tbody>
+    </table>
+    <p><button type="button" id="load-more" hidden>Load more recordings</button></p>
+    <p class="small">Recording metadata comes from MusicBrainz. Statistics are shown only when a separate performance-data provider supplies a sourced figure. No catalogue metadata is treated as popularity data.</p>
+  </section>
 
-<hr>
-<section id="charts">
-  <h2>Song database</h2>
-  <p><span id="result-count" class="count">0</span> songs shown.</p>
-  <div class="controls">
-    <label for="artist-filter">Artist:</label>
-    <select id="artist-filter"><option value="">All artists</option></select>
-    <label for="sort-by">Sort:</label>
-    <select id="sort-by">
-      <option value="artist">Artist (A–Z)</option>
-      <option value="title">Song title (A–Z)</option>
-      <option value="snapshot-desc">Snapshot count (high to low)</option>
-      <option value="snapshot-asc">Snapshot count (low to high)</option>
-    </select>
-  </div>
-  <table>
-    <thead><tr><th>Song</th><th>Artist</th><th>Stream snapshot*</th><th>Physical</th><th>Digital</th><th>Status</th></tr></thead>
-    <tbody id="song-table"></tbody>
-  </table>
-  <p id="empty-state" class="unavailable" hidden>No songs match those filters. The database gremlins found nothing.</p>
-  <p class="small">* Snapshot values below were transcribed from a user-provided Spotify screenshot. The counter type, territory and capture date have not been independently verified. They are not presented as confirmed audio-stream totals. All other missing figures remain unavailable, not zero.</p>
-  <div id="song-detail" class="detail" aria-live="polite">
-    <h3>Song record</h3>
-    <p>Select a song in the table to inspect its record.</p>
-  </div>
-</section>
+  <hr>
+  <section id="charts">
+    <h2>Spotify Global Weekly Chart — experimental</h2>
+    <p>This optional connector reads the public Spotify Charts web feed. It is undocumented and may change. Chart-period streams, when present, are not lifetime totals.</p>
+    <p class="controls">
+      <button type="button" id="spotify-chart-load">Fetch Global Weekly Chart</button>
+      <button type="button" id="spotify-chart-export" disabled>Export chart snapshot JSON</button>
+    </p>
+    <p id="spotify-chart-status" class="small status" aria-live="polite">No chart loaded.</p>
+    <table id="spotify-chart-table" hidden>
+      <thead><tr><th>Rank</th><th>Track</th><th>Artists</th><th>Chart-period streams</th></tr></thead>
+      <tbody id="spotify-chart-rows"></tbody>
+    </table>
+  </section>
 
-<hr>
-<section id="methodology">
-  <h2>Methodology & data rules</h2>
-  <p>TOTALCHART keeps observed counts, estimates and weighted chart units separate. A raw stream count, a CD single purchase and a paid download are different kinds of activity; a simple sum is not automatically a fair popularity score.</p>
-  <ol>
-    <li>Keep streaming, physical sales and digital purchases visible as separate components.</li>
-    <li>Show a combined total only when the underlying figures cover compatible products, territories and time periods and the calculation is explicitly defined.</li>
-    <li>Mark missing information as “Unavailable” or “Not researched”, never as zero.</li>
-    <li>Record the source, territory, date range, and whether each figure is reported or estimated.</li>
-    <li>Do not count an album purchase as a separate purchase of every individual track unless the source's methodology explicitly allocates it that way.</li>
-  </ol>
-  <p>Reference material: <a href="https://support.luminatedata.com/portal/en/kb/articles/methodology">Luminate methodology</a> and <a href="https://gmr.ifpi.org/downloads/GMR2026_Methodology.pdf">IFPI 2026 methodology</a>.</p>
-</section>
+  <hr>
+  <section id="methodology">
+    <h2>Methodology & data rules</h2>
+    <p>TOTALCHART keeps observed counts, estimates and weighted chart units separate. A raw stream count, a CD single purchase and a paid download are different kinds of activity; a simple sum is not automatically a fair popularity score.</p>
+    <ol>
+      <li>Keep streaming, physical sales and digital purchases visible as separate components.</li>
+      <li>Show a combined total only when the underlying figures cover compatible products, territories and time periods and the calculation is explicitly defined.</li>
+      <li>Mark missing information as “Unavailable” or “Not researched”, never as zero.</li>
+      <li>Record the source, territory, date range, and whether each figure is reported or estimated.</li>
+      <li>Do not count an album purchase as a separate purchase of every individual track unless the source's methodology explicitly allocates it that way.</li>
+    </ol>
+    <p>Reference material: <a href="https://support.luminatedata.com/portal/en/kb/articles/methodology">Luminate methodology</a> and <a href="https://gmr.ifpi.org/downloads/GMR2026_Methodology.pdf">IFPI 2026 methodology</a>.</p>
+  </section>
 
-<hr>
-<section id="about">
-  <h2>About TOTALCHART</h2>
-  <p>TOTALCHART is an independent project exploring how music popularity can be represented across eras and formats. The catalogue is a work in progress; an empty statistic is not an invitation to make one up.</p>
-  <p>Current version: searchable catalogue, artist filtering, sorting, individual song records, MusicBrainz artist/recording discovery, and an experimental Spotify Global Weekly chart connector. Data collection and source verification are ongoing.</p>
-</section>
+  <hr>
+  <section id="about">
+    <h2>About TOTALCHART</h2>
+    <p>TOTALCHART is an independent project exploring how music popularity can be represented across eras and formats. Artist and recording results are fetched when searched; no artist or song catalogue is hardcoded into the homepage.</p>
+    <p>Catalogue source: <a href="https://musicbrainz.org/">MusicBrainz</a>. Performance figures require separate sources and are not inferred from catalogue entries.</p>
+  </section>
 </main>
 <footer><p class="small">TOTALCHART — made of HTML, stubbornness, and at least three dollars. Over there.</p></footer>
 
 <script type="module">
-  import { searchArtists, browseRecordings, toArtistRecord, toRecordingRecord } from "./js/musicbrainz.js";
+  import { searchArtists, browseRecordings } from "./js/musicbrainz.js";
   import { fetchGlobalWeeklyChart, toSpotifyChartRecords } from "./js/spotify-charts.js";
 
-  // Values are deliberately kept separate by format. null means no usable figure is available.
-  const songs = [
-    {id:"toxic", title:"Toxic", artist:"Britney Spears", snapshot:2116600610, physical:null, digital:null, status:"Partial", note:"Transcribed from the user's Spotify screenshot; counter type, territory and capture date unverified."},
-    {id:"baby-one-more-time", title:"...Baby One More Time", artist:"Britney Spears", snapshot:1524052461, physical:null, digital:null, status:"Partial", note:"Transcribed from the user's Spotify screenshot; counter type, territory and capture date unverified."},
-    {id:"gimme-more", title:"Gimme More", artist:"Britney Spears", snapshot:1382124161, physical:null, digital:null, status:"Partial", note:"Transcribed from the user's Spotify screenshot; counter type, territory and capture date unverified."},
-    {id:"oops", title:"Oops!... I Did It Again", artist:"Britney Spears", snapshot:1316966479, physical:null, digital:null, status:"Partial", note:"Transcribed from the user's Spotify screenshot; counter type, territory and capture date unverified."},
-    {id:"womanizer", title:"Womanizer", artist:"Britney Spears", snapshot:969222776, physical:null, digital:null, status:"Partial", note:"Transcribed from the user's Spotify screenshot; counter type, territory and capture date unverified."},
-    {id:"circus", title:"Circus", artist:"Britney Spears", snapshot:734179387, physical:null, digital:null, status:"Partial", note:"Transcribed from the user's Spotify screenshot; counter type, territory and capture date unverified."},
-    {id:"criminal", title:"Criminal", artist:"Britney Spears", snapshot:502320608, physical:null, digital:null, status:"Partial", note:"Transcribed from the user's Spotify screenshot; counter type, territory and capture date unverified."},
-    {id:"slave-4-u", title:"I'm a Slave 4 U", artist:"Britney Spears", snapshot:357322955, physical:null, digital:null, status:"Partial", note:"Transcribed from the user's Spotify screenshot; counter type, territory and capture date unverified."},
-    {id:"i-wanna-go", title:"I Wanna Go", artist:"Britney Spears", snapshot:301674505, physical:null, digital:null, status:"Partial", note:"Transcribed from the user's Spotify screenshot; counter type, territory and capture date unverified."},
-    {id:"lucky", title:"Lucky", artist:"Britney Spears", snapshot:283927625, physical:null, digital:null, status:"Partial", note:"Transcribed from the user's Spotify screenshot; counter type, territory and capture date unverified."},
-    {id:"umbrella", title:"Umbrella", artist:"Rihanna", snapshot:null, physical:null, digital:null, status:"Not researched", note:"Catalogue entry only. No statistics have been entered."},
-    {id:"dont-stop-the-music", title:"Don't Stop the Music", artist:"Rihanna", snapshot:null, physical:null, digital:null, status:"Not researched", note:"Catalogue entry only. No statistics have been entered."},
-    {id:"shut-up-and-drive", title:"Shut Up and Drive", artist:"Rihanna", snapshot:null, physical:null, digital:null, status:"Not researched", note:"Catalogue entry only. No statistics have been entered."},
-    {id:"disturbia", title:"Disturbia", artist:"Rihanna", snapshot:null, physical:null, digital:null, status:"Not researched", note:"Catalogue entry only. No statistics have been entered."},
-    {id:"sos", title:"SOS", artist:"Rihanna", snapshot:null, physical:null, digital:null, status:"Not researched", note:"Catalogue entry only. No statistics have been entered."},
-    {id:"naughty-girl", title:"Naughty Girl", artist:"Beyoncé", snapshot:null, physical:null, digital:null, status:"Not researched", note:"Catalogue entry only. No statistics have been entered."},
-    {id:"crazy-in-love", title:"Crazy in Love", artist:"Beyoncé", snapshot:null, physical:null, digital:null, status:"Not researched", note:"Catalogue entry only. No statistics have been entered."},
-    {id:"single-ladies", title:"Single Ladies (Put a Ring on It)", artist:"Beyoncé", snapshot:null, physical:null, digital:null, status:"Not researched", note:"Catalogue entry only. No statistics have been entered."},
-    {id:"halo", title:"Halo", artist:"Beyoncé", snapshot:null, physical:null, digital:null, status:"Not researched", note:"Catalogue entry only. No statistics have been entered."},
-    {id:"break-my-soul", title:"BREAK MY SOUL", artist:"Beyoncé", snapshot:null, physical:null, digital:null, status:"Not researched", note:"Catalogue entry only. No statistics have been entered."}
-  ];
+  const searchForm = document.getElementById("artist-search-form");
+  const searchInput = document.getElementById("artist-search");
+  const searchButton = document.getElementById("artist-search-button");
+  const searchStatus = document.getElementById("search-status");
+  const artistResults = document.getElementById("artist-results");
+  const artistPage = document.getElementById("artist-page");
+  const artistName = document.getElementById("artist-name");
+  const artistDescription = document.getElementById("artist-description");
+  const recordingStatus = document.getElementById("recording-status");
+  const recordingTable = document.getElementById("recording-table");
+  const recordingRows = document.getElementById("recording-rows");
+  const loadMoreButton = document.getElementById("load-more");
 
-  const form = document.getElementById("search-form");
-  const search = document.getElementById("search");
-  const message = document.getElementById("search-message");
-  const artistFilter = document.getElementById("artist-filter");
-  const sortBy = document.getElementById("sort-by");
-  const table = document.getElementById("song-table");
-  const detail = document.getElementById("song-detail");
-  const count = document.getElementById("result-count");
-  const empty = document.getElementById("empty-state");
-  let activeSong = null;
-  let query = "";
+  let selectedArtist = null;
+  let recordings = [];
+  let recordingCount = 0;
+  let nextOffset = 0;
+  let requestGeneration = 0;
 
-  const formatNumber = value => value === null ? "Unavailable" : value.toLocaleString("en-US");
-  const artists = [...new Set(songs.map(song => song.artist))].sort((a,b) => a.localeCompare(b));
-
-  artists.forEach(artist => {
-    const option = document.createElement("option");
-    option.value = artist; option.textContent = artist;
-    artistFilter.appendChild(option);
-    const item = document.createElement("li");
-    const link = document.createElement("a");
-    link.href = "#charts"; link.textContent = artist;
-    link.addEventListener("click", () => { artistFilter.value = artist; query = ""; search.value = ""; render(); message.textContent = "Showing songs by " + artist + "."; });
-    item.appendChild(link);
-    const total = songs.filter(song => song.artist === artist).length;
-    item.append(" — " + total + " catalogue entries");
-    document.getElementById("artist-list").appendChild(item);
-  });
-
-  function renderDetail(song) {
-    activeSong = song.id;
-    detail.replaceChildren();
-    const heading = document.createElement("h3"); heading.textContent = song.title + " — " + song.artist;
-    const list = document.createElement("ul");
-    [
-      ["Streaming snapshot", formatNumber(song.snapshot)],
-      ["Physical sales", formatNumber(song.physical)],
-      ["Digital purchases", formatNumber(song.digital)],
-      ["Combined units", "Not calculated"],
-      ["Data status", song.status],
-      ["Source / notes", song.note]
-    ].forEach(([label, value]) => {
-      const li = document.createElement("li");
-      const strong = document.createElement("strong"); strong.textContent = label + ": ";
-      li.append(strong, value); list.appendChild(li);
-    });
-    const explanation = document.createElement("p");
-    explanation.className = "small";
-    explanation.textContent = "Territory: not established. Reporting period: not established. No missing value is treated as zero.";
-    detail.append(heading, list, explanation);
-    renderRowsHighlight();
+  function cell(row, value) {
+    const td = document.createElement("td");
+    td.textContent = value || "—";
+    row.appendChild(td);
+    return td;
   }
 
-  function renderRowsHighlight() {
-    [...table.rows].forEach(row => row.classList.toggle("selected", row.dataset.id === activeSong));
+  function formatDuration(milliseconds) {
+    if (!Number.isInteger(milliseconds) || milliseconds < 0) return "—";
+    const seconds = Math.floor(milliseconds / 1000);
+    return Math.floor(seconds / 60) + ":" + String(seconds % 60).padStart(2, "0");
   }
 
-  function render() {
-    let visible = songs.filter(song => {
-      const matchesArtist = !artistFilter.value || song.artist === artistFilter.value;
-      const matchesQuery = !query || (song.title + " " + song.artist).toLocaleLowerCase().includes(query);
-      return matchesArtist && matchesQuery;
+  function clearArtistPage() {
+    selectedArtist = null;
+    recordings = [];
+    recordingCount = 0;
+    nextOffset = 0;
+    artistPage.hidden = true;
+    recordingRows.replaceChildren();
+    recordingTable.hidden = true;
+    loadMoreButton.hidden = true;
+  }
+
+  function renderArtistResults(artists) {
+    artistResults.replaceChildren();
+    if (!artists.length) {
+      const p = document.createElement("p");
+      p.className = "muted";
+      p.textContent = "No matching artists found. Try another spelling.";
+      artistResults.appendChild(p);
+      return;
+    }
+
+    const table = document.createElement("table");
+    const head = document.createElement("thead");
+    const headerRow = document.createElement("tr");
+    ["Artist", "Area", "Type", "Disambiguation", "Action"].forEach(label => {
+      const th = document.createElement("th");
+      th.textContent = label;
+      headerRow.appendChild(th);
     });
-    const sort = sortBy.value;
-    visible.sort((a,b) => {
-      if (sort === "title") return a.title.localeCompare(b.title);
-      if (sort === "snapshot-desc") return (b.snapshot ?? -1) - (a.snapshot ?? -1);
-      if (sort === "snapshot-asc") return (a.snapshot ?? Number.MAX_SAFE_INTEGER) - (b.snapshot ?? Number.MAX_SAFE_INTEGER);
-      return a.artist.localeCompare(b.artist) || a.title.localeCompare(b.title);
+    head.appendChild(headerRow);
+    table.appendChild(head);
+
+    const body = document.createElement("tbody");
+    artists.forEach(artist => {
+      const row = document.createElement("tr");
+      cell(row, artist.name);
+      cell(row, artist.area?.name || artist.country || "—");
+      cell(row, artist.type || "—");
+      cell(row, artist.disambiguation || "—");
+      const action = document.createElement("td");
+      const button = document.createElement("button");
+      button.type = "button";
+      button.textContent = "Open artist";
+      button.addEventListener("click", () => selectArtist(artist));
+      action.appendChild(button);
+      row.appendChild(action);
+      body.appendChild(row);
     });
-    table.replaceChildren();
-    visible.forEach(song => {
-      const row = document.createElement("tr"); row.dataset.id = song.id;
+    table.appendChild(body);
+    artistResults.appendChild(table);
+  }
+
+  function renderRecordings() {
+    recordingRows.replaceChildren();
+    recordings.forEach(recording => {
+      const row = document.createElement("tr");
       const titleCell = document.createElement("td");
-      const link = document.createElement("a"); link.href = "#song-detail"; link.textContent = song.title;
-      link.addEventListener("click", event => { event.preventDefault(); renderDetail(song); });
+      const link = document.createElement("a");
+      link.href = "https://musicbrainz.org/recording/" + encodeURIComponent(recording.id);
+      link.target = "_blank";
+      link.rel = "noopener";
+      link.textContent = recording.title || "Untitled recording";
       titleCell.appendChild(link);
-      [titleCell, song.artist, formatNumber(song.snapshot), formatNumber(song.physical), formatNumber(song.digital), song.status].forEach((value, index) => {
-        if (index === 0) row.appendChild(value);
-        else { const cell = document.createElement("td"); cell.textContent = value; if (value === "Unavailable") cell.className = "unavailable"; row.appendChild(cell); }
-      });
-      row.addEventListener("dblclick", () => renderDetail(song));
-      table.appendChild(row);
+      row.appendChild(titleCell);
+      cell(row, recording["first-release-date"] || "—");
+      cell(row, formatDuration(recording.length));
+      cell(row, Array.isArray(recording.isrcs) ? recording.isrcs.join(", ") : "—");
+      cell(row, "Not researched");
+      recordingRows.appendChild(row);
     });
-    count.textContent = visible.length;
-    empty.hidden = visible.length !== 0;
-    renderRowsHighlight();
+    recordingTable.hidden = recordings.length === 0;
+    loadMoreButton.hidden = nextOffset >= recordingCount || recordingCount === 0;
   }
 
-  form.addEventListener("submit", event => {
+  async function loadRecordings(generation) {
+    if (!selectedArtist) return;
+    loadMoreButton.disabled = true;
+    recordingStatus.textContent = "Fetching recordings from MusicBrainz…";
+    try {
+      const result = await browseRecordings(selectedArtist.id, 100, nextOffset);
+      if (generation !== requestGeneration) return;
+      const page = Array.isArray(result.recordings) ? result.recordings : [];
+      const seen = new Set(recordings.map(item => item.id));
+      page.forEach(item => { if (!seen.has(item.id)) recordings.push(item); });
+      recordingCount = Number(result["recording-count"] || recordingCount || 0);
+      nextOffset += page.length;
+      renderRecordings();
+      recordingStatus.textContent = recordings.length + " of " + recordingCount + " recording entries fetched. Statistics are not included in MusicBrainz catalogue data.";
+      if (!page.length && recordings.length === 0) recordingStatus.textContent = "No recording entries were returned for this artist.";
+    } catch (error) {
+      if (generation === requestGeneration) recordingStatus.textContent = error.message;
+    } finally {
+      loadMoreButton.disabled = false;
+    }
+  }
+
+  async function selectArtist(artist) {
+    requestGeneration += 1;
+    const generation = requestGeneration;
+    selectedArtist = artist;
+    recordings = [];
+    recordingCount = 0;
+    nextOffset = 0;
+    artistPage.hidden = false;
+    artistName.textContent = artist.name;
+    const lifespan = artist["life-span"] || {};
+    artistDescription.textContent = [
+      artist.type || "Artist type not listed",
+      artist.area?.name || artist.country || "Area not listed",
+      artist.disambiguation || "",
+      [lifespan.begin, lifespan.end].filter(Boolean).join(" – ")
+    ].filter(Boolean).join(" · ");
+    const artistLink = document.createElement("a");
+    artistLink.href = "https://musicbrainz.org/artist/" + encodeURIComponent(artist.id);
+    artistLink.target = "_blank";
+    artistLink.rel = "noopener";
+    artistLink.textContent = "MusicBrainz artist record";
+    artistDescription.append(" · ", artistLink);
+    recordingRows.replaceChildren();
+    recordingTable.hidden = true;
+    recordingStatus.textContent = "Artist selected. Fetching its recordings…";
+    await loadRecordings(generation);
+    artistPage.scrollIntoView({behavior:"smooth", block:"start"});
+  }
+
+  searchForm.addEventListener("submit", async event => {
     event.preventDefault();
-    query = search.value.trim().toLocaleLowerCase();
-    render();
-    message.textContent = query ? (count.textContent + " matching song record(s).") : "Showing the full catalogue.";
-    if (query && Number(count.textContent) === 0) message.textContent = "No matching artists or songs. Try another search.";
+    const query = searchInput.value.trim();
+    if (query.length < 2) {
+      searchStatus.textContent = "Enter at least two characters.";
+      return;
+    }
+    requestGeneration += 1;
+    clearArtistPage();
+    artistResults.replaceChildren();
+    searchButton.disabled = true;
+    searchStatus.textContent = "Searching the live MusicBrainz catalogue…";
+    try {
+      const result = await searchArtists(query, 15);
+      renderArtistResults(Array.isArray(result.artists) ? result.artists : []);
+      searchStatus.textContent = (result.artists || []).length + " matching artist record(s) fetched.";
+    } catch (error) {
+      searchStatus.textContent = error.message;
+    } finally {
+      searchButton.disabled = false;
+    }
   });
-  document.getElementById("clear-search").addEventListener("click", () => {
-    search.value = ""; query = ""; artistFilter.value = ""; render();
-    message.textContent = "Search and filters cleared. The whole catalogue is back.";
+
+  loadMoreButton.addEventListener("click", () => {
+    if (selectedArtist) loadRecordings(requestGeneration);
   });
-  artistFilter.addEventListener("change", render);
-  sortBy.addEventListener("change", render);
 
-
-  // Experimental public Spotify Global weekly chart connector.
+  // Optional chart connector. Kept separate from artist discovery and artist catalogue results.
   const spotifyLoadButton = document.getElementById("spotify-chart-load");
   const spotifyExportButton = document.getElementById("spotify-chart-export");
   const spotifyStatus = document.getElementById("spotify-chart-status");
   const spotifyTable = document.getElementById("spotify-chart-table");
   const spotifyRows = document.getElementById("spotify-chart-rows");
-  let spotifyChart = null;
   let spotifyChartRecords = null;
-
-  function spotifyFormatNumber(value) {
-    return value === null || value === undefined ? "Not supplied" : Number(value).toLocaleString("en-US");
-  }
-
-  function spotifyRenderChart(chart) {
-    spotifyRows.replaceChildren();
-    chart.entries.forEach(entry => {
-      const row = document.createElement("tr");
-      mbCell(row, entry.rank === null ? "—" : String(entry.rank));
-      mbCell(row, entry.title);
-      mbCell(row, entry.artists.map(artist => artist.name).join(", ") || "—");
-      mbCell(row, spotifyFormatNumber(entry.streams));
-      spotifyRows.appendChild(row);
-    });
-    spotifyTable.hidden = chart.entries.length === 0;
-  }
 
   spotifyLoadButton.addEventListener("click", async () => {
     spotifyLoadButton.disabled = true;
     spotifyExportButton.disabled = true;
     spotifyStatus.textContent = "Fetching Spotify's public chart feed…";
+    spotifyRows.replaceChildren();
     spotifyTable.hidden = true;
     try {
-      spotifyChart = await fetchGlobalWeeklyChart();
-      spotifyChartRecords = toSpotifyChartRecords(spotifyChart);
-      spotifyRenderChart(spotifyChart);
-      const withStreams = spotifyChart.entries.filter(entry => entry.streams !== null).length;
-      spotifyStatus.textContent =
-        spotifyChart.title + (spotifyChart.date ? " · " + spotifyChart.date : "") +
-        " · " + spotifyChart.entries.length + " entries · " + withStreams +
-        " entries include a chart-period stream count. " +
-        "This is chart data, not an all-time stream ranking.";
+      const chart = await fetchGlobalWeeklyChart();
+      spotifyChartRecords = toSpotifyChartRecords(chart);
+      chart.entries.forEach(entry => {
+        const row = document.createElement("tr");
+        cell(row, entry.rank === null ? "—" : String(entry.rank));
+        cell(row, entry.title);
+        cell(row, entry.artists.map(artist => artist.name).join(", "));
+        cell(row, entry.streams === null ? "Not supplied" : Number(entry.streams).toLocaleString("en-US"));
+        spotifyRows.appendChild(row);
+      });
+      spotifyTable.hidden = chart.entries.length === 0;
+      const withStreams = chart.entries.filter(entry => entry.streams !== null).length;
+      spotifyStatus.textContent = chart.title + (chart.date ? " · " + chart.date : "") + " · " + chart.entries.length + " entries · " + withStreams + " include chart-period streams.";
       spotifyExportButton.disabled = spotifyChartRecords.observations.length === 0;
     } catch (error) {
-      spotifyChart = null;
       spotifyChartRecords = null;
       spotifyStatus.textContent = error.message;
     } finally {
@@ -332,301 +322,27 @@
     }
   });
 
-  spotifyExportButton.addEventListener("click", async () => {
+  spotifyExportButton.addEventListener("click", () => {
     if (!spotifyChartRecords) return;
-    spotifyExportButton.disabled = true;
-    try {
-      const base = await mbDatasetPromise;
-      const dataset = {
-        schema_version: "1.0.0",
-        updated_at: new Date().toISOString(),
-        artists: Array.isArray(base.artists) ? [...base.artists] : [],
-        recordings: Array.isArray(base.recordings) ? [...base.recordings] : [],
-        observations: Array.isArray(base.observations) ? [...base.observations] : []
-      };
-
-      const artistMap = new Map(dataset.artists.map(item => [item.id, item]));
-      spotifyChartRecords.artists.forEach(item => artistMap.set(item.id, item));
-      dataset.artists = [...artistMap.values()].sort((a, b) => a.name.localeCompare(b.name));
-
-      const recordingMap = new Map(dataset.recordings.map(item => [item.id, item]));
-      spotifyChartRecords.recordings.forEach(item => recordingMap.set(item.id, item));
-      dataset.recordings = [...recordingMap.values()].sort((a, b) => a.title.localeCompare(b.title));
-
-      const observationMap = new Map(dataset.observations.map(item => [item.id, item]));
-      spotifyChartRecords.observations.forEach(item => observationMap.set(item.id, item));
-      dataset.observations = [...observationMap.values()].sort((a, b) => a.captured_at.localeCompare(b.captured_at));
-
-      const blob = new Blob([JSON.stringify(dataset, null, 2)], { type: "application/json" });
-      const objectUrl = URL.createObjectURL(blob);
-      const anchor = document.createElement("a");
-      anchor.href = objectUrl;
-      anchor.download = "totalchart-spotify-chart-" + new Date().toISOString().slice(0, 10) + ".json";
-      document.body.appendChild(anchor);
-      anchor.click();
-      anchor.remove();
-      setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
-      spotifyStatus.textContent =
-        "Export prepared: " + spotifyChartRecords.observations.length +
-        " chart observations added. No lifetime stream totals were created.";
-    } catch (error) {
-      spotifyStatus.textContent = "Export failed: " + error.message;
-    } finally {
-      spotifyExportButton.disabled = false;
-    }
-  });
-
-    // MusicBrainz discovery is deliberately separate from commercial statistics.
-  const mbForm = document.getElementById("mb-search-form");
-  const mbSearch = document.getElementById("mb-search");
-  const mbStatus = document.getElementById("mb-status");
-  const mbResults = document.getElementById("mb-artist-results");
-  const mbSelected = document.getElementById("mb-selected");
-  const mbSelectedName = document.getElementById("mb-selected-name");
-  const mbSelectedInfo = document.getElementById("mb-selected-info");
-  const mbBrowseButton = document.getElementById("mb-browse");
-  const mbExportButton = document.getElementById("mb-export");
-  const mbRecordingStatus = document.getElementById("mb-recording-status");
-  const mbRecordingTable = document.getElementById("mb-recording-table");
-  const mbRecordingRows = document.getElementById("mb-recording-rows");
-  const mbLoadMoreButton = document.getElementById("mb-load-more");
-
-  let mbActiveArtist = null;
-  let mbRecordings = [];
-  let mbRecordingCount = 0;
-  let mbNextOffset = 0;
-
-  const mbDatasetPromise = fetch("./data/observations.json")
-    .then(response => {
-      if (!response.ok) throw new Error("Could not load the base dataset.");
-      return response.json();
-    })
-    .catch(() => ({
+    const dataset = {
       schema_version: "1.0.0",
       updated_at: new Date().toISOString(),
-      artists: [],
-      recordings: [],
-      observations: []
-    }));
-
-  function mbCell(row, value) {
-    const cell = document.createElement("td");
-    cell.textContent = value || "—";
-    row.appendChild(cell);
-    return cell;
-  }
-
-  function mbClearSelection() {
-    mbActiveArtist = null;
-    mbRecordings = [];
-    mbRecordingCount = 0;
-    mbNextOffset = 0;
-    mbSelected.hidden = true;
-    mbRecordingRows.replaceChildren();
-    mbRecordingTable.hidden = true;
-    mbLoadMoreButton.hidden = true;
-    mbExportButton.disabled = true;
-  }
-
-  function mbSelectArtist(artist) {
-    mbActiveArtist = artist;
-    mbRecordings = [];
-    mbRecordingCount = 0;
-    mbNextOffset = 0;
-    mbSelected.hidden = false;
-    mbSelectedName.textContent = artist.name;
-    const area = artist.area?.name || artist.country || "Area not listed";
-    const life = artist["life-span"] || {};
-    const years = [life.begin, life.end].filter(Boolean).join(" – ");
-    mbSelectedInfo.textContent = [
-      artist.type || "Artist type not listed",
-      area,
-      artist.disambiguation || "",
-      years
-    ].filter(Boolean).join(" · ");
-
-    const link = document.createElement("a");
-    link.href = "https://musicbrainz.org/artist/" + encodeURIComponent(artist.id);
-    link.target = "_blank";
-    link.rel = "noopener";
-    link.textContent = "Open this artist on MusicBrainz";
-    mbSelectedInfo.append(" · ", link);
-
-    mbRecordingStatus.textContent = "Artist selected. Browse recordings to retrieve catalogue entries.";
-    mbRecordingRows.replaceChildren();
-    mbRecordingTable.hidden = true;
-    mbLoadMoreButton.hidden = true;
-    mbExportButton.disabled = false;
-    mbStatus.textContent = "Selected " + artist.name + ". Artist identity is not a performance statistic.";
-  }
-
-  function mbRenderArtists(artists) {
-    mbResults.replaceChildren();
-    if (!artists.length) {
-      const p = document.createElement("p");
-      p.className = "unavailable";
-      p.textContent = "No artist matches were returned. Try a different spelling.";
-      mbResults.appendChild(p);
-      return;
-    }
-
-    const table = document.createElement("table");
-    const head = document.createElement("thead");
-    const headRow = document.createElement("tr");
-    ["Artist", "Area", "Type / disambiguation", "Action"].forEach(label => {
-      const th = document.createElement("th");
-      th.textContent = label;
-      headRow.appendChild(th);
-    });
-    head.appendChild(headRow);
-    table.appendChild(head);
-
-    const body = document.createElement("tbody");
-    artists.forEach(artist => {
-      const row = document.createElement("tr");
-      const nameCell = document.createElement("td");
-      const link = document.createElement("a");
-      link.href = "https://musicbrainz.org/artist/" + encodeURIComponent(artist.id);
-      link.target = "_blank";
-      link.rel = "noopener";
-      link.textContent = artist.name;
-      nameCell.appendChild(link);
-      row.appendChild(nameCell);
-      mbCell(row, artist.area?.name || artist.country || "—");
-      mbCell(row, [artist.type, artist.disambiguation].filter(Boolean).join(" · ") || "—");
-      const actionCell = document.createElement("td");
-      const button = document.createElement("button");
-      button.type = "button";
-      button.textContent = "Select artist";
-      button.addEventListener("click", () => mbSelectArtist(artist));
-      actionCell.appendChild(button);
-      row.appendChild(actionCell);
-      body.appendChild(row);
-    });
-    table.appendChild(body);
-    mbResults.appendChild(table);
-  }
-
-  function mbFormatDuration(milliseconds) {
-    if (!Number.isInteger(milliseconds) || milliseconds < 0) return "—";
-    const seconds = Math.floor(milliseconds / 1000);
-    return Math.floor(seconds / 60) + ":" + String(seconds % 60).padStart(2, "0");
-  }
-
-  function mbRenderRecordings() {
-    mbRecordingRows.replaceChildren();
-    mbRecordings.forEach(recording => {
-      const row = document.createElement("tr");
-      const titleCell = document.createElement("td");
-      const link = document.createElement("a");
-      link.href = "https://musicbrainz.org/recording/" + encodeURIComponent(recording.id);
-      link.target = "_blank";
-      link.rel = "noopener";
-      link.textContent = recording.title;
-      titleCell.appendChild(link);
-      row.appendChild(titleCell);
-      mbCell(row, recording["first-release-date"] || "—");
-      mbCell(row, mbFormatDuration(recording.length));
-      mbCell(row, Array.isArray(recording.isrcs) ? recording.isrcs.join(", ") : "—");
-      mbRecordingRows.appendChild(row);
-    });
-    mbRecordingTable.hidden = mbRecordings.length === 0;
-    mbExportButton.disabled = !mbActiveArtist;
-    mbLoadMoreButton.hidden = mbNextOffset >= mbRecordingCount || mbRecordingCount === 0;
-  }
-
-  async function mbLoadRecordings() {
-    if (!mbActiveArtist) return;
-    mbBrowseButton.disabled = true;
-    mbLoadMoreButton.disabled = true;
-    mbRecordingStatus.textContent = "Asking MusicBrainz for recordings…";
-    try {
-      const result = await browseRecordings(mbActiveArtist.id, 100, mbNextOffset);
-      const page = Array.isArray(result.recordings) ? result.recordings : [];
-      const seen = new Set(mbRecordings.map(item => item.id));
-      page.forEach(item => { if (!seen.has(item.id)) mbRecordings.push(item); });
-      mbRecordingCount = Number(result["recording-count"] || mbRecordingCount || 0);
-      mbNextOffset += page.length;
-      mbRenderRecordings();
-      mbRecordingStatus.textContent = mbRecordings.length + " of " + mbRecordingCount + " recordings loaded. These are catalogue records, not stream totals.";
-    } catch (error) {
-      mbRecordingStatus.textContent = error.message;
-    } finally {
-      mbBrowseButton.disabled = false;
-      mbLoadMoreButton.disabled = false;
-    }
-  }
-
-  mbForm.addEventListener("submit", async event => {
-    event.preventDefault();
-    const query = mbSearch.value.trim();
-    if (query.length < 2) {
-      mbStatus.textContent = "Enter at least two characters.";
-      return;
-    }
-    mbClearSelection();
-    mbResults.replaceChildren();
-    mbStatus.textContent = "Searching MusicBrainz…";
-    const submitButton = mbForm.querySelector('button[type="submit"]');
-    submitButton.disabled = true;
-    try {
-      const result = await searchArtists(query, 15);
-      const artists = Array.isArray(result.artists) ? result.artists : [];
-      mbRenderArtists(artists);
-      mbStatus.textContent = artists.length + " artist match(es) returned by MusicBrainz.";
-    } catch (error) {
-      mbStatus.textContent = error.message;
-    } finally {
-      submitButton.disabled = false;
-    }
+      artists: spotifyChartRecords.artists,
+      recordings: spotifyChartRecords.recordings,
+      observations: spotifyChartRecords.observations
+    };
+    const blob = new Blob([JSON.stringify(dataset, null, 2)], {type:"application/json"});
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = "totalchart-spotify-chart-" + new Date().toISOString().slice(0,10) + ".json";
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    spotifyStatus.textContent = "Chart snapshot exported. These are chart-period observations, not lifetime totals.";
   });
 
-  mbBrowseButton.addEventListener("click", mbLoadRecordings);
-  mbLoadMoreButton.addEventListener("click", mbLoadRecordings);
-
-  mbExportButton.addEventListener("click", async () => {
-    if (!mbActiveArtist) return;
-    mbExportButton.disabled = true;
-    mbStatus.textContent = "Preparing the catalogue export…";
-    try {
-      const base = await mbDatasetPromise;
-      const dataset = {
-        schema_version: "1.0.0",
-        updated_at: new Date().toISOString(),
-        artists: Array.isArray(base.artists) ? [...base.artists] : [],
-        recordings: Array.isArray(base.recordings) ? [...base.recordings] : [],
-        observations: Array.isArray(base.observations) ? [...base.observations] : []
-      };
-
-      const artistsById = new Map(dataset.artists.map(item => [item.id, item]));
-      artistsById.set(toArtistRecord(mbActiveArtist).id, toArtistRecord(mbActiveArtist));
-      dataset.artists = [...artistsById.values()].sort((a, b) => a.name.localeCompare(b.name));
-
-      const recordingsById = new Map(dataset.recordings.map(item => [item.id, item]));
-      mbRecordings.forEach(item => {
-        const record = toRecordingRecord(item, mbActiveArtist);
-        recordingsById.set(record.id, record);
-      });
-      dataset.recordings = [...recordingsById.values()].sort((a, b) => a.title.localeCompare(b.title));
-
-      const blob = new Blob([JSON.stringify(dataset, null, 2)], { type: "application/json" });
-      const objectUrl = URL.createObjectURL(blob);
-      const anchor = document.createElement("a");
-      anchor.href = objectUrl;
-      anchor.download = "totalchart-musicbrainz-import-" + new Date().toISOString().slice(0, 10) + ".json";
-      document.body.appendChild(anchor);
-      anchor.click();
-      anchor.remove();
-      URL.revokeObjectURL(objectUrl);
-      mbStatus.textContent = "Export prepared: " + dataset.artists.length + " artist record(s), " + dataset.recordings.length + " recording record(s), and " + dataset.observations.length + " statistic observation(s). No new statistics were created.";
-    } catch (error) {
-      mbStatus.textContent = "Export failed: " + error.message;
-    } finally {
-      mbExportButton.disabled = false;
-    }
-  });
-
-  render();
 </script>
 </body>
 </html>
