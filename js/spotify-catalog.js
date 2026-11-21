@@ -6,6 +6,7 @@
 
 const ITUNES_SEARCH_URL = "https://itunes.apple.com/search";
 const API_BASE = "https://totalchart-musicbrainz-proxy.melodii7785.workers.dev";
+const SPOTIFY_ID_FINDER_BASE = "https://totalchart-spotify-id-finder.melodii7785.workers.dev";
 
 function mapITunesResult(type, item) {
   if (!item || typeof item !== "object") return null;
@@ -24,6 +25,8 @@ function mapITunesResult(type, item) {
     artist_name: artistName || null,
     album_name: item.collectionName || null,
     release_date: item.releaseDate || null,
+    duration_ms: Number.isFinite(item.trackTimeMillis) ? item.trackTimeMillis : null,
+    isrc: typeof item.isrc === "string" ? item.isrc : null,
     genre: item.primaryGenreName || null,
     track_count: Number.isInteger(item.trackCount) ? item.trackCount : null,
     image_url: item.artworkUrl100 || item.artworkUrl60 || null,
@@ -91,6 +94,57 @@ export async function searchITunes(query, type = "all") {
     source: "Apple iTunes Search API (Brazil storefront)",
     observed_at: new Date().toISOString()
   };
+}
+
+export async function findSpotifyMatches(item) {
+  if (!item || !["track", "album", "artist"].includes(item.type)) {
+    throw new Error("Choose a track, album, or artist from the iTunes results first.");
+  }
+  if (!item.name) {
+    throw new Error("The selected iTunes result does not have a catalogue name.");
+  }
+
+  const payload = {
+    type: item.type,
+    name: String(item.name),
+    artist_name: String(item.artist_name || (item.artists && item.artists[0] && item.artists[0].name) || ""),
+    album_name: String(item.album_name || ""),
+    release_date: String(item.release_date || ""),
+    duration_ms: Number.isFinite(item.duration_ms) ? item.duration_ms : null,
+    isrc: String(item.isrc || "")
+  };
+
+  let response;
+  try {
+    response = await fetch(SPOTIFY_ID_FINDER_BASE + "/resolve", {
+      method: "POST",
+      headers: {
+        "Accept": "application/json",
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(payload)
+    });
+  } catch {
+    throw new Error("Could not reach the Spotify ID Finder. Check that its Cloudflare Worker is deployed.");
+  }
+
+  let data;
+  try {
+    data = await response.json();
+  } catch {
+    throw new Error("The Spotify ID Finder returned an unreadable response (HTTP " + response.status + ").");
+  }
+
+  if (!response.ok) {
+    const detail = data && (data.detail || data.error);
+    const retry = response.headers.get("Retry-After");
+    throw new Error(
+      (detail || "Spotify ID matching failed (HTTP " + response.status + ").") +
+      (response.status === 429 && retry ? " Try again in " + retry + " seconds." : "")
+    );
+  }
+
+  return data;
 }
 
 async function requestJson(path) {
