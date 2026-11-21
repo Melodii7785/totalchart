@@ -85,7 +85,7 @@ export function findSpotifyTrackId(recording) {
 
     try {
       const url = new URL(resource);
-      if (!/(^|\\.)spotify\\.com$/i.test(url.hostname)) continue;
+      if (!/(^|\.)spotify\.com$/i.test(url.hostname)) continue;
       const parts = url.pathname.split("/").filter(Boolean);
       const index = parts.indexOf("track");
       const id = index >= 0 ? parts[index + 1] : null;
