@@ -69,3 +69,31 @@ export const spotifyPathfinderPlaycountSource = {
   operation: "getTrack",
   caveat: "Undocumented interface. Spotify may change or restrict it without notice."
 };
+
+/**
+ * Return a Spotify track ID only when MusicBrainz has an explicit URL
+ * relationship from this recording to that exact Spotify track.
+ * Ambiguous multiple Spotify track links are deliberately rejected.
+ */
+export function findSpotifyTrackId(recording) {
+  const ids = new Set();
+  const relations = Array.isArray(recording?.relations) ? recording.relations : [];
+
+  for (const relation of relations) {
+    const resource = relation?.url?.resource;
+    if (typeof resource !== "string") continue;
+
+    try {
+      const url = new URL(resource);
+      if (!/(^|\\.)spotify\\.com$/i.test(url.hostname)) continue;
+      const parts = url.pathname.split("/").filter(Boolean);
+      const index = parts.indexOf("track");
+      const id = index >= 0 ? parts[index + 1] : null;
+      if (id && TRACK_ID_RE.test(id)) ids.add(id);
+    } catch {
+      // Ignore malformed or non-Spotify URLs.
+    }
+  }
+
+  return ids.size === 1 ? Array.from(ids)[0] : null;
+}
