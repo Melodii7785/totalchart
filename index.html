@@ -86,6 +86,20 @@
 </section>
 
 <hr>
+<section id="spotify-charts">
+  <h2>Spotify Global Weekly Chart — experimental</h2>
+  <p>This connector reads Spotify's public Global weekly chart feed. It is an undocumented web endpoint, so it may change or stop working. Stream counts are recorded only when the response actually contains them.</p>
+  <p class="small">Important: Spotify filters chart streams for chart eligibility. These figures represent the chart period, not every play and not lifetime streams.</p>
+  <p><button type="button" id="spotify-chart-load">Fetch Global Weekly Chart</button>
+    <button type="button" id="spotify-chart-export" disabled>Export chart snapshot JSON</button></p>
+  <p id="spotify-chart-status" class="small" aria-live="polite">No chart loaded yet.</p>
+  <table id="spotify-chart-table" hidden>
+    <thead><tr><th>Rank</th><th>Track</th><th>Artists</th><th>Chart-period streams</th></tr></thead>
+    <tbody id="spotify-chart-rows"></tbody>
+  </table>
+</section>
+
+<hr>
 <section id="charts">
   <h2>Song database</h2>
   <p><span id="result-count" class="count">0</span> songs shown.</p>
@@ -136,7 +150,8 @@
 <footer><p class="small">TOTALCHART — made of HTML, stubbornness, and at least three dollars. Over there.</p></footer>
 
 <script type="module">
-  import { searchArtists, browseRecordings, toArtistRecord, toRecordingRecord, musicBrainzSource } from "./js/musicbrainz.js";
+  import { searchArtists, browseRecordings, toArtistRecord, toRecordingRecord } from "./js/musicbrainz.js";
+  import { fetchGlobalWeeklyChart, toSpotifyChartRecords } from "./js/spotify-charts.js";
 
   // Values are deliberately kept separate by format. null means no usable figure is available.
   const songs = [
@@ -265,7 +280,103 @@
   artistFilter.addEventListener("change", render);
   sortBy.addEventListener("change", render);
 
-  // MusicBrainz discovery is deliberately separate from commercial statistics.
+
+  // Experimental public Spotify Global weekly chart connector.
+  const spotifyLoadButton = document.getElementById("spotify-chart-load");
+  const spotifyExportButton = document.getElementById("spotify-chart-export");
+  const spotifyStatus = document.getElementById("spotify-chart-status");
+  const spotifyTable = document.getElementById("spotify-chart-table");
+  const spotifyRows = document.getElementById("spotify-chart-rows");
+  let spotifyChart = null;
+  let spotifyChartRecords = null;
+
+  function spotifyFormatNumber(value) {
+    return value === null || value === undefined ? "Not supplied" : Number(value).toLocaleString("en-US");
+  }
+
+  function spotifyRenderChart(chart) {
+    spotifyRows.replaceChildren();
+    chart.entries.forEach(entry => {
+      const row = document.createElement("tr");
+      mbCell(row, entry.rank === null ? "—" : String(entry.rank));
+      mbCell(row, entry.title);
+      mbCell(row, entry.artists.map(artist => artist.name).join(", ") || "—");
+      mbCell(row, spotifyFormatNumber(entry.streams));
+      spotifyRows.appendChild(row);
+    });
+    spotifyTable.hidden = chart.entries.length === 0;
+  }
+
+  spotifyLoadButton.addEventListener("click", async () => {
+    spotifyLoadButton.disabled = true;
+    spotifyExportButton.disabled = true;
+    spotifyStatus.textContent = "Fetching Spotify's public chart feed…";
+    spotifyTable.hidden = true;
+    try {
+      spotifyChart = await fetchGlobalWeeklyChart();
+      spotifyChartRecords = toSpotifyChartRecords(spotifyChart);
+      spotifyRenderChart(spotifyChart);
+      const withStreams = spotifyChart.entries.filter(entry => entry.streams !== null).length;
+      spotifyStatus.textContent =
+        spotifyChart.title + (spotifyChart.date ? " · " + spotifyChart.date : "") +
+        " · " + spotifyChart.entries.length + " entries · " + withStreams +
+        " entries include a chart-period stream count. " +
+        "This is chart data, not an all-time stream ranking.";
+      spotifyExportButton.disabled = spotifyChartRecords.observations.length === 0;
+    } catch (error) {
+      spotifyChart = null;
+      spotifyChartRecords = null;
+      spotifyStatus.textContent = error.message;
+    } finally {
+      spotifyLoadButton.disabled = false;
+    }
+  });
+
+  spotifyExportButton.addEventListener("click", async () => {
+    if (!spotifyChartRecords) return;
+    spotifyExportButton.disabled = true;
+    try {
+      const base = await mbDatasetPromise;
+      const dataset = {
+        schema_version: "1.0.0",
+        updated_at: new Date().toISOString(),
+        artists: Array.isArray(base.artists) ? [...base.artists] : [],
+        recordings: Array.isArray(base.recordings) ? [...base.recordings] : [],
+        observations: Array.isArray(base.observations) ? [...base.observations] : []
+      };
+
+      const artistMap = new Map(dataset.artists.map(item => [item.id, item]));
+      spotifyChartRecords.artists.forEach(item => artistMap.set(item.id, item));
+      dataset.artists = [...artistMap.values()].sort((a, b) => a.name.localeCompare(b.name));
+
+      const recordingMap = new Map(dataset.recordings.map(item => [item.id, item]));
+      spotifyChartRecords.recordings.forEach(item => recordingMap.set(item.id, item));
+      dataset.recordings = [...recordingMap.values()].sort((a, b) => a.title.localeCompare(b.title));
+
+      const observationMap = new Map(dataset.observations.map(item => [item.id, item]));
+      spotifyChartRecords.observations.forEach(item => observationMap.set(item.id, item));
+      dataset.observations = [...observationMap.values()].sort((a, b) => a.captured_at.localeCompare(b.captured_at));
+
+      const blob = new Blob([JSON.stringify(dataset, null, 2)], { type: "application/json" });
+      const objectUrl = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = objectUrl;
+      anchor.download = "totalchart-spotify-chart-" + new Date().toISOString().slice(0, 10) + ".json";
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
+      spotifyStatus.textContent =
+        "Export prepared: " + spotifyChartRecords.observations.length +
+        " chart observations added. No lifetime stream totals were created.";
+    } catch (error) {
+      spotifyStatus.textContent = "Export failed: " + error.message;
+    } finally {
+      spotifyExportButton.disabled = false;
+    }
+  });
+
+    // MusicBrainz discovery is deliberately separate from commercial statistics.
   const mbForm = document.getElementById("mb-search-form");
   const mbSearch = document.getElementById("mb-search");
   const mbStatus = document.getElementById("mb-status");
